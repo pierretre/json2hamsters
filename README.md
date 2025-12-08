@@ -157,17 +157,24 @@ Total: **18 tests** ✅
 
 ```text
 json2hamsters/
-├── JsonParser.py          # Main parser and validator
-├── main.py                # CLI entry point
-├── test_validation.py     # Unit tests (18 tests)
-├── requirements.txt       # Python dependencies
-├── in/                    # Input JSON files
-│   ├── Scenario1.json
-│   └── Scenario2.json
-├── generated/             # Output files (.hmst, IR JSON)
+├── JsonParser.py               # Main parser and validator
+├── json_schema.py              # JSON schema definition and validator
+├── hamsters-task.schema.json  # JSON Schema for IDE autocomplete
+├── main.py                     # CLI entry point
+├── test_validation.py          # Unit tests (18 tests)
+├── requirements.txt            # Python dependencies
+├── in/                         # Primary scenario files
+│   ├── Scenario1.json          # Consult incidents (with statistics & history)
+│   └── Scenario2.json          # Define new incident rule
+├── examples/                   # Additional examples and test cases
+│   ├── scenario.json           # Copy of Scenario2
+│   ├── valid_children.json     # Example with nested children
+│   ├── invalid_schema.json     # Test case: extra properties (rejected)
+│   └── invalid_duration.json   # Test case: invalid values (rejected)
+├── generated/                  # Output files (.hmst, IR JSON)
 │   ├── Scenario1.hmst
 │   └── Scenario2.hmst
-└── venv/                  # Virtual environment
+└── venv/                       # Virtual environment
 ```
 
 ## HAMSTERS Model

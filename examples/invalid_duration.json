@@ -1,4 +1,5 @@
 {
+    "$schema": "../hamsters-task.schema.json",
     "label": "Test",
     "duration": {
         "min": -5,

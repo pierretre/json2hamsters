@@ -1,7 +1,6 @@
-"""JSON Schema for HAMSTERS task definitions"""
-
-TASK_SCHEMA = {
+{
     "$schema": "http://json-schema.org/draft-07/schema#",
+    "$id": "https://raw.githubusercontent.com/pierretre/json2hamsters/main/hamsters-task.schema.json",
     "title": "HAMSTERS Task Definition",
     "description": "Schema for validating HAMSTERS task definitions in JSON format",
     "type": "object",
@@ -24,7 +23,15 @@ TASK_SCHEMA = {
         "type": {
             "type": "string",
             "description": "Task type",
-            "enum": ["abstract", "goal", "user", "system", "cognitive", "interaction", "cooperative"]
+            "enum": [
+                "abstract",
+                "goal",
+                "user",
+                "system",
+                "cognitive",
+                "interaction",
+                "cooperative"
+            ]
         },
         "description": {
             "type": "string",
@@ -34,7 +41,16 @@ TASK_SCHEMA = {
         "operator": {
             "type": "string",
             "description": "Temporal operator",
-            "enum": ["sequence", "choice", "order-independent", "concurrency", "loop", "optional", "interrupt", "suspend_resume"]
+            "enum": [
+                "sequence",
+                "choice",
+                "order-independent",
+                "concurrency",
+                "loop",
+                "optional",
+                "interrupt",
+                "suspend_resume"
+            ]
         },
         "duration": {
             "type": "object",
@@ -42,20 +58,28 @@ TASK_SCHEMA = {
             "properties": {
                 "min": {
                     "type": "number",
+                    "description": "Minimum duration",
                     "minimum": 0,
                     "maximum": 1000000
                 },
                 "max": {
                     "type": "number",
+                    "description": "Maximum duration",
                     "minimum": 0,
                     "maximum": 1000000
                 },
                 "unit": {
                     "type": "string",
-                    "enum": ["ms", "s", "min", "h"]
+                    "description": "Time unit",
+                    "enum": [
+                        "ms",
+                        "s",
+                        "min",
+                        "h"
+                    ]
                 }
             },
-            "additionalProperties": False
+            "additionalProperties": false
         },
         "loop": {
             "type": "object",
@@ -63,16 +87,18 @@ TASK_SCHEMA = {
             "properties": {
                 "minIterations": {
                     "type": "integer",
+                    "description": "Minimum number of iterations",
                     "minimum": 0,
                     "maximum": 10000
                 },
                 "maxIterations": {
                     "type": "integer",
+                    "description": "Maximum number of iterations",
                     "minimum": 0,
                     "maximum": 10000
                 }
             },
-            "additionalProperties": False
+            "additionalProperties": false
         },
         "optional": {
             "type": "boolean",
@@ -89,45 +115,12 @@ TASK_SCHEMA = {
         "metadata": {
             "type": "object",
             "description": "Additional metadata",
-            "additionalProperties": True,
+            "additionalProperties": true,
             "maxProperties": 50
         }
     },
-    "required": ["label"],
-    "additionalProperties": False
+    "required": [
+        "label"
+    ],
+    "additionalProperties": false
 }
-
-
-def validate_json_schema(data: dict) -> tuple:
-    """
-    Validate JSON data against HAMSTERS task schema.
-    
-    Args:
-        data: JSON data to validate
-        
-    Returns:
-        tuple: (is_valid: bool, error_message: str)
-    """
-    try:
-        import jsonschema
-        from jsonschema import Draft7Validator
-        
-        validator = Draft7Validator(TASK_SCHEMA)
-        errors = list(validator.iter_errors(data))
-        
-        if not errors:
-            return (True, "")
-        
-        # Collect first 3 errors
-        error_messages = []
-        for error in errors[:3]:
-            path = ".".join(str(p) for p in error.path) if error.path else "root"
-            error_messages.append(f"{path}: {error.message}")
-        
-        return (False, "; ".join(error_messages))
-        
-    except ImportError:
-        # jsonschema not installed, skip validation
-        return (True, "")
-    except Exception as e:
-        return (False, f"Schema validation error: {str(e)}")
