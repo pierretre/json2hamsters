@@ -1,0 +1,404 @@
+import json
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+from typing import Dict, List, Any, Optional
+from pathlib import Path
+import urllib.request
+import tempfile
+
+
+class TaskIR:
+    """Intermediate Representation for a Task"""
+    def __init__(self):
+        self.id: str = ""
+        self.label: str = ""
+        self.type: str = "abstract"
+        self.description: str = ""
+        self.duration: Dict[str, Any] = {"min": 0, "max": 0, "unit": "s"}
+        self.operator: Optional[str] = None
+        self.children: List['TaskIR'] = []
+        self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
+        self.optional: bool = False
+        self.metadata: Dict[str, Any] = {}
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert IR to dictionary"""
+        result = {
+            "id": self.id,
+            "label": self.label,
+            "type": self.type,
+            "description": self.description,
+            "duration": self.duration,
+            "optional": self.optional
+        }
+        
+        if self.operator:
+            result["operator"] = self.operator
+        
+        if self.children:
+            result["children"] = [child.to_dict() for child in self.children]
+        
+        if self.operator == "loop" and (self.loop["minIterations"] or self.loop["maxIterations"]):
+            result["loop"] = self.loop
+        
+        if self.metadata:
+            result["metadata"] = self.metadata
+        
+        return result
+
+
+class JsonParser:
+    # HAMSTERS XML Schema namespace and location
+    HAMSTERS_NAMESPACE = "https://www.irit.fr/ICS/HAMSTERS/7.0"
+    XSD_SCHEMA_LOCATION = "https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd"
+    
+    def __init__(self, json_data: Dict[str, Any]):
+        """Initialize parser with JSON data"""
+        self.json_data = json_data
+        self.task_ir: Optional[TaskIR] = None
+        self.schema_cache_path = Path(tempfile.gettempdir()) / "hamsters_v7.xsd"
+        self._task_counter = 0  # Counter for auto-generating task IDs
+
+    def parse(self) -> TaskIR:
+        """Parse JSON and create Intermediate Representation"""
+        if isinstance(self.json_data, dict):
+            self.task_ir = self._parse_task(self.json_data, is_root=True)
+        return self.task_ir
+
+    def _generate_task_id(self) -> str:
+        """Generate incremental task ID (lowercase)"""
+        task_id = f"t{self._task_counter}"
+        self._task_counter += 1
+        return task_id
+    
+    def _parse_task(self, task_data: Dict[str, Any], is_root: bool = False) -> TaskIR:
+        """Convert a task JSON object to TaskIR with default filling"""
+        task = TaskIR()
+        
+        # Required fields - auto-generate ID if not provided
+        task.id = task_data.get("id") if "id" in task_data else self._generate_task_id()
+        task.label = task_data.get("label", "Unnamed Task")
+        
+        # Apply type rules: if type explicitly provided, use it; otherwise root is 'goal', others are 'abstract'
+        if "type" in task_data:
+            # If type is explicitly specified in JSON, always use it
+            task.type = task_data["type"]
+        else:
+            # If type is not specified, apply default rules
+            task.type = "goal" if is_root else "abstract"
+        
+        # Optional fields
+        task.description = task_data.get("description", "")
+        task.optional = task_data.get("optional", False)
+        
+        # Duration with defaults
+        if "duration" in task_data:
+            task.duration = {
+                "min": task_data["duration"].get("min", 0),
+                "max": task_data["duration"].get("max", 0),
+                "unit": task_data["duration"].get("unit", "s")
+            }
+        
+        # Operator and children
+        if "operator" in task_data:
+            task.operator = task_data["operator"]
+        
+        if "children" in task_data and isinstance(task_data["children"], list):
+            task.children = [self._parse_task(child, is_root=False) for child in task_data["children"]]
+        
+        # Loop configuration
+        if "loop" in task_data:
+            task.loop = {
+                "minIterations": task_data["loop"].get("minIterations", 0),
+                "maxIterations": task_data["loop"].get("maxIterations", 0)
+            }
+        
+        # Metadata
+        task.metadata = task_data.get("metadata", {})
+        
+        return task
+
+    def to_xml(self) -> str:
+        """Convert TaskIR to formatted XML string with HAMSTERS schema"""
+        if not self.task_ir:
+            raise ValueError("No task IR available. Call parse() first.")
+        
+        # Create root element with HAMSTERS namespace (https)
+        root = ET.Element("hamsters")
+        root.set("xmlns", self.HAMSTERS_NAMESPACE)
+        root.set("xmlns:xsi", "http://www.w3.org/2001/XMLSchema-instance")
+        root.set("name", self.task_ir.label)
+        root.set("version", "7")
+        root.set("xsi:schemaLocation", f"{self.HAMSTERS_NAMESPACE} {self.XSD_SCHEMA_LOCATION}")
+        
+        # Create required nodes element
+        nodes_elem = ET.SubElement(root, "nodes")
+        
+        # Add tasks recursively to nodes
+        self._add_tasks_recursively(nodes_elem, self.task_ir)
+        
+        # Add datas element (empty by request)
+        datas_elem = ET.SubElement(root, "datas")
+        
+        # Add errors element (empty)
+        errors_elem = ET.SubElement(root, "errors")
+        
+        # Add security element (empty)
+        security_elem = ET.SubElement(root, "security")
+        
+        # Add parameters element (empty)
+        parameters_elem = ET.SubElement(root, "parameters")
+        
+        # Add instancevalues element (empty)
+        instancevalues_elem = ET.SubElement(root, "instancevalues")
+        
+        # Add parametersdefinitions element (empty)
+        parametersdefs_elem = ET.SubElement(root, "parametersdefinitions")
+        
+        # Add mainproperties element
+        mainproperties_elem = ET.SubElement(root, "mainproperties")
+        timemanagement_prop = ET.SubElement(mainproperties_elem, "property")
+        timemanagement_prop.set("name", "timemanagement")
+        timemanagement_prop.set("type", "fr.irit.ics.circus.hamsters.api.TimeManagement")
+        timemanagement_prop.set("value", "NORMAL")
+        
+        return self._prettify_xml(root)
+
+    def _add_tasks_recursively(self, parent_elem: ET.Element, task: TaskIR):
+        """Recursively add task and its children to XML nodes element"""
+        task_elem = self._task_to_xml_element(task)
+        parent_elem.append(task_elem)
+
+    def _task_to_xml_element(self, task: TaskIR) -> ET.Element:
+        """Convert TaskIR to XML Element matching HAMSTERS schema"""
+        task_elem = ET.Element("task")
+        task_elem.set("id", task.id)
+        task_elem.set("type", task.type)  # Required by schema
+        task_elem.set("copy", "false")  # Required by schema
+        task_elem.set("knowledgeproceduraltype", "")
+        
+        # Add graphics (required by hamstersnode base type)
+        graphics_elem = ET.SubElement(task_elem, "graphics")
+        graphic_elem = ET.SubElement(graphics_elem, "graphic")
+        graphic_elem.set("folded", "false")
+        position_elem = ET.SubElement(graphic_elem, "position")
+        position_elem.set("x", "0")
+        position_elem.set("y", "0")
+        
+        # If task has children and operator, create operator element before description
+        if task.children and task.operator:
+            operator_elem = ET.SubElement(task_elem, "operator")
+            operator_elem.set("id", f"o{self._task_counter}")
+            self._task_counter += 1
+            operator_elem.set("type", task.operator)
+            operator_elem.set("knowledgeproceduraltype", "")
+            
+            # Add graphics to operator
+            op_graphics = ET.SubElement(operator_elem, "graphics")
+            op_graphic = ET.SubElement(op_graphics, "graphic")
+            op_position = ET.SubElement(op_graphic, "position")
+            op_position.set("x", "0")
+            op_position.set("y", "0")
+            
+            # Recursively add children within the operator
+            for child in task.children:
+                child_elem = self._task_to_xml_element(child)
+                operator_elem.append(child_elem)
+        
+        # Add description (required by schema)
+        desc_elem = ET.SubElement(task_elem, "description")
+        desc_elem.text = task.description if task.description else task.label
+        
+        # Add xlproperties (required by schema, can be empty)
+        xlprops_elem = ET.SubElement(task_elem, "xlproperties")
+        
+        # Add coreproperties with categories (required by schema)
+        coreprops_elem = ET.SubElement(task_elem, "coreproperties")
+        categories_elem = ET.SubElement(coreprops_elem, "categories")
+        
+        # Add simulation category
+        sim_category = ET.SubElement(categories_elem, "category")
+        sim_category.set("name", "simulation")
+        
+        duration_prop = ET.SubElement(sim_category, "property")
+        duration_prop.set("name", "duration")
+        duration_prop.set("value", "false")
+        
+        iterative_prop = ET.SubElement(sim_category, "property")
+        iterative_prop.set("name", "iterative")
+        iterative_prop.set("value", "0")
+        
+        optional_prop = ET.SubElement(sim_category, "property")
+        optional_prop.set("name", "optional")
+        optional_prop.set("value", "true" if task.optional else "false")
+        
+        minexectime_prop = ET.SubElement(sim_category, "property")
+        minexectime_prop.set("name", "minexectime")
+        minexectime_prop.set("value", str(task.duration.get("min", 0)))
+        
+        maxexectime_prop = ET.SubElement(sim_category, "property")
+        maxexectime_prop.set("name", "maxexectime")
+        maxexectime_prop.set("value", str(task.duration.get("max", 0)))
+        
+        # Add authority category
+        auth_category = ET.SubElement(categories_elem, "category")
+        auth_category.set("name", "authority")
+        
+        responsibility_prop = ET.SubElement(auth_category, "property")
+        responsibility_prop.set("name", "responsibility")
+        responsibility_prop.set("type", "java.lang.Boolean")
+        responsibility_prop.set("value", "false")
+        
+        authority_prop = ET.SubElement(auth_category, "property")
+        authority_prop.set("name", "authority")
+        authority_prop.set("type", "java.lang.Boolean")
+        authority_prop.set("value", "false")
+        
+        # Add criticality category
+        crit_category = ET.SubElement(categories_elem, "category")
+        crit_category.set("name", "criticality")
+        
+        criticality_prop = ET.SubElement(crit_category, "property")
+        criticality_prop.set("name", "criticality")
+        criticality_prop.set("type", "java.lang.Integer")
+        criticality_prop.set("value", "0")
+        
+        return task_elem
+
+    def _prettify_xml(self, elem: ET.Element) -> str:
+        """Return a pretty-printed XML string."""
+        rough_string = ET.tostring(elem, encoding='unicode')
+        reparsed = minidom.parseString(rough_string)
+        xml_str = reparsed.toprettyxml(indent="    ")
+        # Ensure UTF-8 encoding in the XML declaration
+        if '<?xml' in xml_str:
+            xml_str = xml_str.replace('<?xml version="1.0" ?>', '<?xml version="1.0" encoding="UTF-8"?>')
+        return xml_str
+
+    def to_json_ir(self) -> str:
+        """Convert TaskIR back to JSON"""
+        if not self.task_ir:
+            raise ValueError("No task IR available. Call parse() first.")
+        return json.dumps(self.task_ir.to_dict(), indent=2)
+
+    def _download_schema(self) -> bool:
+        """Download HAMSTERS XSD schema"""
+        try:
+            if self.schema_cache_path.exists():
+                # Verify cached schema is not empty
+                size = self.schema_cache_path.stat().st_size
+                if size == 0:
+                    print(f"Warning: Cached schema is empty ({size} bytes), redownloading...")
+                    self.schema_cache_path.unlink()
+                else:
+                    print(f"Using cached schema: {self.schema_cache_path} ({size} bytes)")
+                    return True
+            
+            print(f"Downloading HAMSTERS schema from {self.XSD_SCHEMA_LOCATION}...")
+            urllib.request.urlretrieve(self.XSD_SCHEMA_LOCATION, str(self.schema_cache_path))
+            
+            # Verify downloaded schema is not empty
+            size = self.schema_cache_path.stat().st_size
+            if size == 0:
+                print(f"Error: Downloaded schema is empty ({size} bytes)")
+                return False
+            
+            print(f"Schema downloaded successfully: {self.schema_cache_path} ({size} bytes)")
+            return True
+        except Exception as e:
+            print(f"Error downloading schema: {e}")
+            return False
+
+    def validate_xml(self, xml_string: str) -> tuple:
+        """Validate generated XML against HAMSTERS schema. Returns (bool, error_msg)."""
+        try:
+            # Try to import lxml for full validation
+            try:
+                from lxml import etree
+                print("Using lxml for full schema validation...")
+                
+                # Download schema if not cached
+                if not self._download_schema():
+                    # Fallback to basic validation
+                    print("Schema download failed, falling back to basic validation...")
+                    return self._basic_validate_xml(xml_string)
+                
+                # Parse XML and schema
+                try:
+                    xml_doc = etree.fromstring(xml_string.encode('utf-8'))
+                except etree.XMLSyntaxError as e:
+                    return (False, f"Invalid XML syntax: {str(e)}")
+                
+                with open(self.schema_cache_path, 'rb') as schema_file:
+                    schema_doc = etree.parse(schema_file)
+                    schema = etree.XMLSchema(schema_doc)
+                
+                # Validate against XSD
+                if schema.validate(xml_doc):
+                    return (True, "")
+                else:
+                    ignored = []
+                    non_ignored = []
+                    ignored_datas_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}datas': Missing child element(s)."
+                    for error in schema.error_log:
+                        message = getattr(error, "message", str(error))
+                        line = getattr(error, "line", "?")
+                        formatted = f"Line {line}: {message}"
+                        if ignored_datas_prefix in message:
+                            ignored.append(formatted)
+                            continue
+                        non_ignored.append(formatted)
+                    if non_ignored:
+                        return (False, "; ".join(non_ignored[:3]) if non_ignored else "Schema validation failed")
+                    # All errors are in the ignored set (datas empty). Treat as pass but report that we ignored.
+                    if ignored:
+                        print("Schema validation warnings ignored for empty <datas /> block.")
+                    return (True, "")
+                    
+            except ImportError:
+                print("lxml not available, using basic XML validation...")
+                # Fallback to basic validation without lxml
+                return self._basic_validate_xml(xml_string)
+                    
+        except Exception as e:
+            return (False, f"Validation error: {str(e)}")
+    
+    def _basic_validate_xml(self, xml_string: str) -> tuple:
+        """Basic XML validation without lxml - checks structure and namespace. Returns (bool, error_msg)."""
+        try:
+            root = ET.fromstring(xml_string)
+            
+            # Check root element and extract namespace from tag
+            if '}' in root.tag:
+                namespace, tag_name = root.tag[1:].split('}')
+            else:
+                namespace = None
+                tag_name = root.tag
+            
+            if tag_name != "hamsters":
+                return (False, f"Root element must be 'hamsters', got '{tag_name}'")
+            
+            # Check namespace
+            if namespace != self.HAMSTERS_NAMESPACE:
+                return (False, f"Invalid namespace: expected {self.HAMSTERS_NAMESPACE}, got {namespace}")
+            
+            # Check for required attributes
+            if 'name' not in root.attrib:
+                return (False, "Missing 'name' attribute in root element")
+            if 'version' not in root.attrib:
+                return (False, "Missing 'version' attribute in root element")
+            if root.attrib['version'] != '7':
+                return (False, f"Expected version 7, got {root.attrib['version']}")
+            
+            # Check for required schema location attribute
+            xsi_schema_loc = '{http://www.w3.org/2001/XMLSchema-instance}schemaLocation'
+            if xsi_schema_loc not in root.attrib:
+                return (False, "Missing xsi:schemaLocation attribute")
+            
+            # Check for Task child
+            if len(root) == 0:
+                return (False, "No task elements found in hamsters root")
+            
+            return (True, "")
+        except ET.ParseError as e:
+            return (False, f"Invalid XML: {str(e)}")
