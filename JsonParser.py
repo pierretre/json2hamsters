@@ -56,8 +56,10 @@ class JsonParser:
         """Initialize parser with JSON data"""
         self.json_data = json_data
         self.task_ir: Optional[TaskIR] = None
+        self.datas: List[Dict[str, Any]] = json_data.get("datas", []) if isinstance(json_data, dict) else []
         self.schema_cache_path = Path(tempfile.gettempdir()) / "hamsters_v7.xsd"
         self._task_counter = 0  # Counter for auto-generating task IDs
+        self._data_counter = 0  # Counter for auto-generating data IDs
 
     def parse(self) -> TaskIR:
         """Parse JSON and create Intermediate Representation"""
@@ -137,8 +139,11 @@ class JsonParser:
         # Add tasks recursively to nodes
         self._add_tasks_recursively(nodes_elem, self.task_ir)
         
-        # Add datas element (empty by request)
+        # Add datas element with data objects if provided
         datas_elem = ET.SubElement(root, "datas")
+        if self.datas:
+            for data_obj in self.datas:
+                self._add_data_element(datas_elem, data_obj)
         
         # Add errors element (empty)
         errors_elem = ET.SubElement(root, "errors")
@@ -265,6 +270,47 @@ class JsonParser:
         
         return task_elem
 
+    def _add_data_element(self, datas_elem: ET.Element, data_obj: Dict[str, Any]):
+        """Add a data element to the datas section"""
+        # Generate ID if not provided
+        data_id = data_obj.get("id")
+        if not data_id:
+            data_id = f"a{self._data_counter}"
+            self._data_counter += 1
+        
+        # Create data element
+        data_elem = ET.SubElement(datas_elem, "data")
+        data_elem.set("type", data_obj.get("type", "objectdod"))
+        data_elem.set("id", data_id)
+        
+        # Add description
+        desc_elem = ET.SubElement(data_elem, "description")
+        desc_elem.text = data_obj.get("description", "")
+        
+        # Add properties (empty)
+        properties_elem = ET.SubElement(data_elem, "properties")
+        
+        # Add links if provided
+        links = data_obj.get("links", [])
+        for link in links:
+            link_elem = ET.SubElement(data_elem, "link")
+            link_elem.set("feature", "none")
+            link_elem.set("sourceid", link.get("taskId", ""))
+            link_elem.set("type", link.get("linkType", "ACCESS_TYPE"))
+            link_elem.set("value", "")
+            
+            # Add empty points element
+            points_elem = ET.SubElement(link_elem, "points")
+        
+        # Add graphics with position
+        graphics_elem = ET.SubElement(data_elem, "graphics")
+        graphic_elem = ET.SubElement(graphics_elem, "graphic")
+        
+        position = data_obj.get("position", {"x": 0, "y": 0})
+        position_elem = ET.SubElement(graphic_elem, "position")
+        position_elem.set("x", str(position.get("x", 0)))
+        position_elem.set("y", str(position.get("y", 0)))
+
     def _prettify_xml(self, elem: ET.Element) -> str:
         """Return a pretty-printed XML string."""
         rough_string = ET.tostring(elem, encoding='unicode')
@@ -340,11 +386,14 @@ class JsonParser:
                     ignored = []
                     non_ignored = []
                     ignored_datas_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}datas': Missing child element(s)."
+                    # Only ignore datas errors if we intentionally have no datas
+                    should_ignore_datas = len(self.datas) == 0
+                    
                     for error in schema.error_log:
                         message = getattr(error, "message", str(error))
                         line = getattr(error, "line", "?")
                         formatted = f"Line {line}: {message}"
-                        if ignored_datas_prefix in message:
+                        if should_ignore_datas and ignored_datas_prefix in message:
                             ignored.append(formatted)
                             continue
                         non_ignored.append(formatted)

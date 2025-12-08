@@ -117,6 +117,41 @@
             "description": "Additional metadata",
             "additionalProperties": true,
             "maxProperties": 50
+        },
+        "datas": {
+            "type": "array",
+            "description": "Data objects (DOD - Description of Data) used in the task model",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "description": "Unique data identifier",
+                        "pattern": "^[a-zA-Z0-9_-]+$"
+                    },
+                    "type": {
+                        "type": "string",
+                        "description": "Data type (DOD classification)",
+                        "enum": [
+                            "objectdod",
+                            "informationdod",
+                            "deviceouputdod",
+                            "deviceinputdod"
+                        ]
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Data description",
+                        "maxLength": 500
+                    }
+                },
+                "required": [
+                    "type",
+                    "description"
+                ],
+                "additionalProperties": false
+            },
+            "maxItems": 100
         }
     },
     "required": [

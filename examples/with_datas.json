@@ -1,0 +1,46 @@
+{
+    "$schema": "../hamsters-task.schema.json",
+    "label": "Access City Digital Twin",
+    "type": "goal",
+    "description": "Example with data objects (DOD)",
+    "operator": "sequence",
+    "children": [
+        {
+            "id": "t1",
+            "label": "User accesses City DT",
+            "type": "user"
+        },
+        {
+            "id": "t3",
+            "label": "User reads information",
+            "type": "user"
+        },
+        {
+            "id": "t5",
+            "label": "System displays on screen",
+            "type": "system"
+        },
+        {
+            "id": "t7",
+            "label": "System stores information",
+            "type": "system"
+        }
+    ],
+    "datas": [
+        {
+            "id": "a1",
+            "type": "objectdod",
+            "description": "City DT"
+        },
+        {
+            "id": "a2",
+            "type": "informationdod",
+            "description": "Information"
+        },
+        {
+            "id": "a3",
+            "type": "deviceouputdod",
+            "description": "Screen"
+        }
+    ]
+}

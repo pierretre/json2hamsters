@@ -87,6 +87,7 @@ All input JSON files are automatically validated against a strict schema before 
 - `optional` (optional, boolean)
 - `children` (optional, array, max 100 items)
 - `metadata` (optional, object, max 50 properties)
+- `datas` (optional, array of data objects - DOD, max 100 items)
 
 **Strict mode:** `additionalProperties: false` - No unknown properties allowed
 
@@ -104,7 +105,7 @@ When running with `--hmst` or `--xml` format, XML validation is performed after 
    - Downloads schema from: `https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd`
    - Schema cached in: `/tmp/hamsters_v7.xsd`
    - Shows detailed error messages
-   - **Special handling**: Validation errors about empty `<datas/>` are ignored (by design)
+   - **Special handling**: Validation errors about empty `<datas/>` are ignored when no datas are provided
 
 2. **Without lxml**: Basic XML structure validation
    - Checks root element, namespace, and required attributes
@@ -168,6 +169,7 @@ json2hamsters/
 │   └── Scenario2.json          # Define new incident rule
 ├── examples/                   # Additional examples and test cases
 │   ├── scenario.json           # Copy of Scenario2
+│   ├── with_datas.json         # Example with data objects (DOD)
 │   ├── valid_children.json     # Example with nested children
 │   ├── invalid_schema.json     # Test case: extra properties (rejected)
 │   └── invalid_duration.json   # Test case: invalid values (rejected)
@@ -201,9 +203,46 @@ The parser supports the following HAMSTERS task model elements:
 ### Generated XML Structure
 
 - **Namespace**: `https://www.irit.fr/ICS/HAMSTERS/7.0`
-- **Root Elements**: nodes, datas (empty), errors, security, parameters, instancevalues, parametersdefinitions, mainproperties
+- **Root Elements**: nodes, datas (populated if provided), errors, security, parameters, instancevalues, parametersdefinitions, mainproperties
 - **Core Properties**: simulation, authority, criticality categories with default values
 - **Graphics**: Position elements (x=0, y=0) for all tasks and operators
+
+### Data Objects (DOD - Description of Data)
+
+Optional `datas` array allows modeling data manipulated by tasks:
+
+- **Data Types**:
+  - `objectdod` - Domain objects (e.g., "City DT", "User Profile")
+  - `informationdod` - Information elements (e.g., "Status", "Message")
+  - `deviceouputdod` - Output devices (e.g., "Screen", "Speaker")
+  - `deviceinputdod` - Input devices (e.g., "Keyboard", "Mouse")
+
+- **Links to Tasks**: Define how tasks interact with data
+  - `ACCESS_TYPE` - Task reads/accesses the data
+  - `STORE_TYPE` - Task writes/stores the data
+  - `USES_TYPE` - Task uses a device
+  - `MODIFY_TYPE` - Task modifies the data
+
+- **Properties**:
+  - `id` (auto-generated as a0, a1, a2... if not provided)
+  - `type` (required)
+  - `description` (required)
+  - `links` (array of {taskId, linkType})
+  - `position` (x, y coordinates for graphical layout)
+
+**Example:**
+
+```json
+"datas": [
+  {
+    "id": "a1",
+    "type": "objectdod",
+    "description": "City DT",
+    "links": [{"taskId": "t1", "linkType": "ACCESS_TYPE"}],
+    "position": {"x": 950, "y": 61}
+  }
+]
+```
 
 ## Example Input (JSON)
 
@@ -283,7 +322,8 @@ Note:
 ## Implementation Notes
 
 - **JSON Schema Validation**: Input JSON is validated before parsing; unknown properties and invalid values are rejected
-- **Empty datas**: The `<datas/>` element is intentionally empty; XSD validation errors about this are suppressed
+- **Data Objects (DOD)**: Optional `datas` array in JSON generates HAMSTERS data elements with types (objectdod, informationdod, deviceouputdod, deviceinputdod), links to tasks (ACCESS_TYPE, STORE_TYPE, USES_TYPE, MODIFY_TYPE), and graphical positions
+- **Empty datas**: When no `datas` are provided, `<datas/>` is empty and XSD validation errors are suppressed
 - **Operator nesting**: When a task has both an `operator` and `children`, the operator element contains the child tasks
 - **Default types**: Root tasks default to `goal`, all other tasks default to `abstract` (unless explicitly specified)
 - **Auto-generated IDs**: Task and operator IDs are generated sequentially (t0, t1..., o0, o1...) in lowercase

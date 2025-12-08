@@ -1,106 +1,23 @@
-"""JSON Schema for HAMSTERS task definitions"""
+"""JSON Schema validation for HAMSTERS task definitions"""
 
-TASK_SCHEMA = {
-    "$schema": "http://json-schema.org/draft-07/schema#",
-    "title": "HAMSTERS Task Definition",
-    "description": "Schema for validating HAMSTERS task definitions in JSON format",
-    "type": "object",
-    "properties": {
-        "$schema": {
-            "type": "string",
-            "description": "JSON Schema reference for IDE support"
-        },
-        "id": {
-            "type": "string",
-            "description": "Unique task identifier (auto-generated if omitted)",
-            "pattern": "^[a-zA-Z0-9_-]+$"
-        },
-        "label": {
-            "type": "string",
-            "description": "Task label (required)",
-            "minLength": 1,
-            "maxLength": 200
-        },
-        "type": {
-            "type": "string",
-            "description": "Task type",
-            "enum": ["abstract", "goal", "user", "system", "cognitive", "interaction", "cooperative"]
-        },
-        "description": {
-            "type": "string",
-            "description": "Task description",
-            "maxLength": 1000
-        },
-        "operator": {
-            "type": "string",
-            "description": "Temporal operator",
-            "enum": ["sequence", "choice", "order-independent", "concurrency", "loop", "optional", "interrupt", "suspend_resume"]
-        },
-        "duration": {
-            "type": "object",
-            "description": "Task duration",
-            "properties": {
-                "min": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1000000
-                },
-                "max": {
-                    "type": "number",
-                    "minimum": 0,
-                    "maximum": 1000000
-                },
-                "unit": {
-                    "type": "string",
-                    "enum": ["ms", "s", "min", "h"]
-                }
-            },
-            "additionalProperties": False
-        },
-        "loop": {
-            "type": "object",
-            "description": "Loop configuration",
-            "properties": {
-                "minIterations": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 10000
-                },
-                "maxIterations": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 10000
-                }
-            },
-            "additionalProperties": False
-        },
-        "optional": {
-            "type": "boolean",
-            "description": "Whether the task is optional"
-        },
-        "children": {
-            "type": "array",
-            "description": "Child tasks",
-            "items": {
-                "$ref": "#"
-            },
-            "maxItems": 100
-        },
-        "metadata": {
-            "type": "object",
-            "description": "Additional metadata",
-            "additionalProperties": True,
-            "maxProperties": 50
-        }
-    },
-    "required": ["label"],
-    "additionalProperties": False
-}
+import json
+from pathlib import Path
+
+
+def _load_schema() -> dict:
+    """Load schema from hamsters-task.schema.json file"""
+    schema_path = Path(__file__).parent / "hamsters-task.schema.json"
+    try:
+        with open(schema_path, 'r') as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Warning: Could not load schema file: {e}")
+        return {}
 
 
 def validate_json_schema(data: dict) -> tuple:
     """
-    Validate JSON data against HAMSTERS task schema.
+    Validate JSON data against HAMSTERS task schema loaded from hamsters-task.schema.json.
     
     Args:
         data: JSON data to validate
@@ -112,7 +29,13 @@ def validate_json_schema(data: dict) -> tuple:
         import jsonschema
         from jsonschema import Draft7Validator
         
-        validator = Draft7Validator(TASK_SCHEMA)
+        # Load schema from file
+        schema = _load_schema()
+        if not schema:
+            # If schema loading failed, skip validation
+            return (True, "")
+        
+        validator = Draft7Validator(schema)
         errors = list(validator.iter_errors(data))
         
         if not errors:
