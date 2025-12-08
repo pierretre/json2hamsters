@@ -124,11 +124,6 @@
             "items": {
                 "type": "object",
                 "properties": {
-                    "id": {
-                        "type": "string",
-                        "description": "Unique data identifier",
-                        "pattern": "^[a-zA-Z0-9_-]+$"
-                    },
                     "type": {
                         "type": "string",
                         "description": "Data type (DOD classification)",
@@ -136,12 +131,55 @@
                             "objectdod",
                             "informationdod",
                             "deviceouputdod",
-                            "deviceinputdod"
+                            "deviceinputdod",
+                            "timedurationdatadod",
+                            "deviceiodod",
+                            "hwsystemdod",
+                            "situationaldod",
+                            "strategicdod",
+                            "timedatadod",
+                            "systemdod",
+                            "applicationdod",
+                            "physicaldod",
+                            "eventdadadod",
+                            "declarativedod",
+                            "calendareventdadadod"
                         ]
                     },
                     "description": {
                         "type": "string",
                         "description": "Data description",
+                        "maxLength": 500
+                    }
+                },
+                "required": [
+                    "type",
+                    "description"
+                ],
+                "additionalProperties": false
+            },
+            "maxItems": 100
+        },
+        "errors": {
+            "type": "array",
+            "description": "Error objects in the task model",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "type": {
+                        "type": "string",
+                        "description": "Error type classification",
+                        "enum": [
+                            "humanerror",
+                            "slip",
+                            "rbm",
+                            "kbm",
+                            "lapse"
+                        ]
+                    },
+                    "description": {
+                        "type": "string",
+                        "description": "Error description",
                         "maxLength": 500
                     }
                 },

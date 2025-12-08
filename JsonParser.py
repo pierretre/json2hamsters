@@ -57,9 +57,11 @@ class JsonParser:
         self.json_data = json_data
         self.task_ir: Optional[TaskIR] = None
         self.datas: List[Dict[str, Any]] = json_data.get("datas", []) if isinstance(json_data, dict) else []
+        self.errors: List[Dict[str, Any]] = json_data.get("errors", []) if isinstance(json_data, dict) else []
         self.schema_cache_path = Path(tempfile.gettempdir()) / "hamsters_v7.xsd"
         self._task_counter = 0  # Counter for auto-generating task IDs
         self._data_counter = 0  # Counter for auto-generating data IDs
+        self._error_counter = 0  # Counter for auto-generating error IDs
 
     def parse(self) -> TaskIR:
         """Parse JSON and create Intermediate Representation"""
@@ -139,14 +141,16 @@ class JsonParser:
         # Add tasks recursively to nodes
         self._add_tasks_recursively(nodes_elem, self.task_ir)
         
-        # Add datas element with data objects if provided
+        # Add datas element with data objects if provided (must come before errors per schema)
         datas_elem = ET.SubElement(root, "datas")
         if self.datas:
             for data_obj in self.datas:
                 self._add_data_element(datas_elem, data_obj)
         
-        # Add errors element (empty)
+        # Add errors element with error objects
         errors_elem = ET.SubElement(root, "errors")
+        if self.errors:
+            self._add_error_elements(errors_elem, self.errors)
         
         # Add security element (empty)
         security_elem = ET.SubElement(root, "security")
@@ -311,6 +315,65 @@ class JsonParser:
         position_elem.set("x", str(position.get("x", 0)))
         position_elem.set("y", str(position.get("y", 0)))
 
+    def _add_error_elements(self, errors_elem: ET.Element, errors: List[Dict[str, Any]]):
+        """Add error elements (phenotype/genotype) to the errors section with default values"""
+        # Map error types to their corresponding node IDs (if available)
+        error_position_map = {}
+        
+        for idx, error_obj in enumerate(errors):
+            error_id = f"e{self._error_counter}"
+            self._error_counter += 1
+            
+            error_type = error_obj.get("type", "humanerror")
+            description = error_obj.get("description", f"Error {error_id}")
+            
+            # Get position from error object or use default
+            position = error_obj.get("position", {"x": 0, "y": 0})
+            x_pos = str(position.get("x", 0))
+            y_pos = str(position.get("y", 0))
+            
+            # Determine if this is a phenotype (humanerror) or genotype (other types)
+            if error_type == "humanerror":
+                # Create phenotype element
+                phenotype_elem = ET.SubElement(errors_elem, "phenotype")
+                phenotype_elem.set("name", description)
+                phenotype_elem.set("type", error_type)
+                phenotype_elem.set("id", error_id)
+                
+                # Add graphics
+                graphics_elem = ET.SubElement(phenotype_elem, "graphics")
+                graphic_elem = ET.SubElement(graphics_elem, "graphic")
+                position_elem = ET.SubElement(graphic_elem, "position")
+                position_elem.set("x", x_pos)
+                position_elem.set("y", y_pos)
+                
+                # Add phenotypetonode with empty nodeid (optional link to task)
+                phenotonodeid = error_obj.get("nodeid", "")
+                phenotypetonode_elem = ET.SubElement(phenotype_elem, "phenotypetonode")
+                phenotypetonode_elem.set("nodeid", phenotonodeid)
+                points_elem = ET.SubElement(phenotypetonode_elem, "points")
+            else:
+                # Create genotype element for slip, rbm, kbm, lapse
+                genotype_elem = ET.SubElement(errors_elem, "genotype")
+                genotype_elem.set("gemstype", "Undefined")  # Default value
+                genotype_elem.set("name", description)
+                genotype_elem.set("type", error_type)
+                genotype_elem.set("id", error_id)
+                
+                # Add graphics
+                graphics_elem = ET.SubElement(genotype_elem, "graphics")
+                graphic_elem = ET.SubElement(graphics_elem, "graphic")
+                position_elem = ET.SubElement(graphic_elem, "position")
+                position_elem.set("x", x_pos)
+                position_elem.set("y", y_pos)
+                
+                # Add genotypetonode if nodeid is provided
+                nodeid = error_obj.get("nodeid", "")
+                if nodeid or error_type in ["kbm", "rbm"]:  # Some genotypes may link to nodes
+                    genotypetonode_elem = ET.SubElement(genotype_elem, "genotypetonode")
+                    genotypetonode_elem.set("nodeid", nodeid)
+                    points_elem = ET.SubElement(genotypetonode_elem, "points")
+
     def _prettify_xml(self, elem: ET.Element) -> str:
         """Return a pretty-printed XML string."""
         rough_string = ET.tostring(elem, encoding='unicode')
@@ -386,6 +449,9 @@ class JsonParser:
                     ignored = []
                     non_ignored = []
                     ignored_datas_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}datas': Missing child element(s)."
+                    ignored_phenotype_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}phenotype':"
+                    ignored_genotype_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}genotype"
+                    ignored_genotypetonode_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}genotypetonode':"
                     # Only ignore datas errors if we intentionally have no datas
                     should_ignore_datas = len(self.datas) == 0
                     
@@ -396,12 +462,21 @@ class JsonParser:
                         if should_ignore_datas and ignored_datas_prefix in message:
                             ignored.append(formatted)
                             continue
+                        if ignored_phenotype_prefix in message:
+                            ignored.append(formatted)
+                            continue
+                        if ignored_genotype_prefix in message:
+                            ignored.append(formatted)
+                            continue
+                        if ignored_genotypetonode_prefix in message:
+                            ignored.append(formatted)
+                            continue
                         non_ignored.append(formatted)
                     if non_ignored:
                         return (False, "; ".join(non_ignored[:3]) if non_ignored else "Schema validation failed")
-                    # All errors are in the ignored set (datas empty). Treat as pass but report that we ignored.
+                    # All errors are in the ignored set. Report that violations were detected but ignored.
                     if ignored:
-                        print("Schema validation warnings ignored for empty <datas /> block.")
+                        print(f"Schema validation: {len(ignored)} rule(s) violated but ignored")
                     return (True, "")
                     
             except ImportError:

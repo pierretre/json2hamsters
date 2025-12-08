@@ -1,16 +1,27 @@
 import json
 import sys
+import argparse
 from pathlib import Path
 from JsonParser import JsonParser
 from json_schema import validate_json_schema
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python main.py <input.json> [--hmst|--xml|--ir]")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Convert JSON task definitions to HAMSTERS v7 format",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("input", help="Input JSON file path")
+    parser.add_argument("format", nargs="?", default="hmst",
+                        choices=["hmst", "xml", "ir", "--hmst", "--xml", "--ir"],
+                        help="Output format: hmst, xml, or ir (default: hmst)")
+    parser.add_argument("-o", "--output", help="Output file path (overrides default generated/ location)")
     
-    filepath = sys.argv[1]
-    output_format = sys.argv[2] if len(sys.argv) > 2 else "--hmst"
+    args = parser.parse_args()
+    
+    filepath = args.input
+    # Normalize format (remove -- prefix if present)
+    output_format = args.format.lstrip("-") if args.format else "hmst"
+    custom_output = args.output
     
     # Ensure generated folder exists
     generated_dir = Path("generated")
@@ -35,14 +46,21 @@ if __name__ == "__main__":
         input_filename = Path(filepath).stem
         
         # Output based on format
-        if output_format in ("--xml", "--hmst"):
+        if output_format in ("xml", "hmst"):
             xml_output = parser.to_xml()
             
             # Validate by default
             is_valid, error_msg = parser.validate_xml(xml_output)
             
-            # Always write HAMSTER XML with .hmst extension (HAMSTERS format)
-            output_file = generated_dir / f"{input_filename}.hmst"
+            # Determine output file path
+            if custom_output:
+                output_file = Path(custom_output)
+                # Create parent directories if needed
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                # Always write HAMSTER XML with .hmst extension (HAMSTERS format)
+                output_file = generated_dir / f"{input_filename}.hmst"
+            
             with open(output_file, 'w') as f:
                 f.write(xml_output)
             
@@ -51,9 +69,17 @@ if __name__ == "__main__":
             else:
                 print(f"FAIL: {error_msg}")
                 sys.exit(1)
-        elif output_format == "--ir":
+        elif output_format == "ir":
             ir_json = parser.to_json_ir()
-            output_file = generated_dir / f"{input_filename}_ir.json"
+            
+            # Determine output file path
+            if custom_output:
+                output_file = Path(custom_output)
+                # Create parent directories if needed
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+            else:
+                output_file = generated_dir / f"{input_filename}_ir.json"
+            
             with open(output_file, 'w') as f:
                 f.write(ir_json)
             print(f"OK - Output: {output_file}")

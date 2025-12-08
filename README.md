@@ -170,6 +170,7 @@ json2hamsters/
 ├── examples/                   # Additional examples and test cases
 │   ├── scenario.json           # Copy of Scenario2
 │   ├── with_datas.json         # Example with data objects (DOD)
+│   ├── with_errors.json        # Example with error model
 │   ├── valid_children.json     # Example with nested children
 │   ├── invalid_schema.json     # Test case: extra properties (rejected)
 │   └── invalid_duration.json   # Test case: invalid values (rejected)
@@ -242,6 +243,51 @@ Optional `datas` array allows modeling data manipulated by tasks:
     "position": {"x": 950, "y": 61}
   }
 ]
+```
+
+### Error Model (Errorconnectors, Phenotypes, Genotypes)
+
+Optional `errors` object allows modeling error analysis per HAMSTERS methodology:
+
+**Error Connectors** - Logic gates combining errors:
+
+- `id` (auto-generated as e0, e1, e2... if not provided)
+- `name` (connector name)
+- `type` (enum: "OR", "AND")
+- `position` (x, y coordinates)
+
+**Phenotypes** - Observable error manifestations:
+
+- `id` (unique identifier)
+- `name` (phenotype name)
+- `type` (enum: "humanerror", "systemerror", "designerror")
+- `position` (x, y coordinates)
+- `links` (array of {connectorId} - connections to error connectors)
+
+**Genotypes** - Root causes of errors:
+
+- `id` (unique identifier)
+- `name` (genotype name)
+- `type` (enum: "slip", "lapse", "mistake", "rbm")
+- `gemstype` (enum: "Undefined", "Routine", "Familiar", "Unfamiliar")
+- `position` (x, y coordinates)
+- `phenotypeLinks` (array of {phenotypeId} - connections to phenotypes)
+- `taskLinks` (array of {taskId} - affected tasks)
+
+**Example:**
+
+```json
+"errors": {
+  "errorconnectors": [
+    {"id": "e3", "name": "", "type": "OR", "position": {"x": -56, "y": 808}}
+  ],
+  "phenotypes": [
+    {"id": "e2", "name": "Type in wrong postalcode", "type": "humanerror", "position": {"x": -248, "y": 732}, "links": [{"connectorId": "e3"}]}
+  ],
+  "genotypes": [
+    {"id": "e4", "name": "Typing Slip", "type": "slip", "gemstype": "Undefined", "position": {"x": -177, "y": 1116}, "phenotypeLinks": [{"phenotypeId": "e2"}], "taskLinks": [{"taskId": "t15"}]}
+  ]
+}
 ```
 
 ## Example Input (JSON)
