@@ -1,15 +1,18 @@
 {
     "$schema": "../hamsters-task.schema.json",
     "label": "Test with too many children",
-    "children": [
-        {
-            "label": "Child 1"
-        },
-        {
-            "label": "Child 2"
-        },
-        {
-            "label": "Child 3"
-        }
-    ]
+    "operator": {
+        "type": "sequence",
+        "children": [
+            {
+                "label": "Child 1"
+            },
+            {
+                "label": "Child 2"
+            },
+            {
+                "label": "Child 3"
+            }
+        ]
+    }
 }

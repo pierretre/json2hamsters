@@ -3,177 +3,224 @@
     "label": "Define New Incident Rule",
     "type": "goal",
     "description": "As a DT Operator, I want to define a new incident rule for a certain type of event that I want to track. Purpose: Maintenance and incident logging",
-    "operator": "sequence",
-    "children": [
-        {
-            "label": "User clicks the create button"
-        },
-        {
-            "label": "System shows the form",
-            "type": "system"
-        },
-        {
-            "label": "User completes the form",
-            "operator": "sequence",
-            "children": [
-                {
-                    "label": "User fills in the form",
-                    "operator": "order-independent",
+    "operator": {
+        "type": "sequence",
+        "children": [
+            {
+                "label": "User clicks the create button"
+            },
+            {
+                "type": "concurrency",
+                "children": [
+                    {
+                        "label": "Parallel check: preload templates",
+                        "type": "system"
+                    },
+                    {
+                        "label": "Parallel check: preload defaults",
+                        "type": "system"
+                    }
+                ]
+            },
+            {
+                "label": "System shows the form",
+                "type": "system"
+            },
+            {
+                "label": "User completes the form",
+                "operator": {
+                    "type": "sequence",
                     "children": [
                         {
-                            "label": "User must fill in the Label field",
-                            "operator": "sequence",
-                            "children": [
-                                {
-                                    "label": "Input text"
-                                }
-                            ]
-                        },
-                        {
-                            "label": "User must fill in the Severity of the incident",
-                            "operator": "sequence",
-                            "children": [
-                                {
-                                    "label": "User selects Severity",
-                                    "operator": "choice",
-                                    "children": [
-                                        {
-                                            "label": "Choose Critical",
-                                            "operator": "sequence",
+                            "label": "User fills in the form",
+                            "operator": {
+                                "type": "order-independent",
+                                "children": [
+                                    {
+                                        "label": "User must fill in the Label field",
+                                        "operator": {
+                                            "type": "sequence",
                                             "children": [
                                                 {
-                                                    "label": "User clicks Critical"
-                                                },
-                                                {
-                                                    "label": "System sets value to critical",
-                                                    "type": "system"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "label": "Choose Major",
-                                            "operator": "sequence",
-                                            "children": [
-                                                {
-                                                    "label": "User clicks Major"
-                                                },
-                                                {
-                                                    "label": "System sets value to major",
-                                                    "type": "system"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "label": "Choose Minor",
-                                            "operator": "sequence",
-                                            "children": [
-                                                {
-                                                    "label": "User clicks Minor"
-                                                },
-                                                {
-                                                    "label": "System sets value to minor",
-                                                    "type": "system"
+                                                    "label": "Input text"
                                                 }
                                             ]
                                         }
-                                    ]
-                                }
-                            ]
-                        },
-                        {
-                            "label": "User must fill in the Description field",
-                            "operator": "sequence",
-                            "children": [
-                                {
-                                    "label": "Input text"
-                                }
-                            ]
-                        },
-                        {
-                            "label": "User can fill in the Category",
-                            "optional": true,
-                            "operator": "sequence",
-                            "children": [
-                                {
-                                    "label": "User selects Category",
-                                    "operator": "choice",
-                                    "children": [
-                                        {
-                                            "label": "Choose Hardware",
-                                            "operator": "sequence",
+                                    },
+                                    {
+                                        "label": "User must fill in the Severity of the incident",
+                                        "operator": {
+                                            "type": "sequence",
                                             "children": [
                                                 {
-                                                    "label": "User clicks Hardware"
-                                                },
-                                                {
-                                                    "label": "System sets value to hardware",
-                                                    "type": "system"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "label": "Choose Software",
-                                            "operator": "sequence",
-                                            "children": [
-                                                {
-                                                    "label": "User clicks Software"
-                                                },
-                                                {
-                                                    "label": "System sets value to software",
-                                                    "type": "system"
-                                                }
-                                            ]
-                                        },
-                                        {
-                                            "label": "Choose Network",
-                                            "operator": "sequence",
-                                            "children": [
-                                                {
-                                                    "label": "User clicks Network"
-                                                },
-                                                {
-                                                    "label": "System sets value to network",
-                                                    "type": "system"
+                                                    "label": "User selects Severity",
+                                                    "operator": {
+                                                        "type": "choice",
+                                                        "children": [
+                                                            {
+                                                                "label": "Choose Critical",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Critical"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to critical",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            },
+                                                            {
+                                                                "label": "Choose Major",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Major"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to major",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            },
+                                                            {
+                                                                "label": "Choose Minor",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Minor"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to minor",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
                                                 }
                                             ]
                                         }
-                                    ]
-                                }
-                            ]
+                                    },
+                                    {
+                                        "label": "User must fill in the Description field",
+                                        "operator": {
+                                            "type": "sequence",
+                                            "children": [
+                                                {
+                                                    "label": "Input text"
+                                                }
+                                            ]
+                                        }
+                                    },
+                                    {
+                                        "label": "User can fill in the Category",
+                                        "optional": true,
+                                        "operator": {
+                                            "type": "sequence",
+                                            "children": [
+                                                {
+                                                    "label": "User selects Category",
+                                                    "operator": {
+                                                        "type": "choice",
+                                                        "children": [
+                                                            {
+                                                                "label": "Choose Hardware",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Hardware"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to hardware",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            },
+                                                            {
+                                                                "label": "Choose Software",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Software"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to software",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            },
+                                                            {
+                                                                "label": "Choose Network",
+                                                                "operator": {
+                                                                    "type": "sequence",
+                                                                    "children": [
+                                                                        {
+                                                                            "label": "User clicks Network"
+                                                                        },
+                                                                        {
+                                                                            "label": "System sets value to network",
+                                                                            "type": "system"
+                                                                        }
+                                                                    ]
+                                                                }
+                                                            }
+                                                        ]
+                                                    }
+                                                }
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        },
+                        {
+                            "label": "User validates the form",
+                            "operator": {
+                                "type": "sequence",
+                                "children": [
+                                    {
+                                        "label": "User clicks validate button"
+                                    },
+                                    {
+                                        "label": "System validates the form",
+                                        "type": "system"
+                                    }
+                                ]
+                            }
                         }
                     ]
-                },
-                {
-                    "label": "User validates the form",
-                    "operator": "sequence",
+                }
+            },
+            {
+                "label": "User saves the rule",
+                "operator": {
+                    "type": "sequence",
                     "children": [
                         {
-                            "label": "User clicks validate button"
+                            "label": "User clicks save button"
                         },
                         {
-                            "label": "System validates the form",
+                            "label": "System saves the incident rule",
+                            "type": "system"
+                        },
+                        {
+                            "label": "System shows confirmation message",
                             "type": "system"
                         }
                     ]
                 }
-            ]
-        },
-        {
-            "label": "User saves the rule",
-            "operator": "sequence",
-            "children": [
-                {
-                    "label": "User clicks save button"
-                },
-                {
-                    "label": "System saves the incident rule",
-                    "type": "system"
-                },
-                {
-                    "label": "System shows confirmation message",
-                    "type": "system"
-                }
-            ]
-        }
-    ]
+            }
+        ]
+    }
 }

@@ -1,7 +1,7 @@
 import json
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 from pathlib import Path
 import urllib.request
 import tempfile
@@ -15,8 +15,7 @@ class TaskIR:
         self.type: str = "abstract"
         self.description: str = ""
         self.duration: Dict[str, Any] = {"min": 0, "max": 0, "unit": "s"}
-        self.operator: Optional[str] = None
-        self.children: List['TaskIR'] = []
+        self.operator: Optional['OperatorIR'] = None
         self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
         self.optional: bool = False
         self.metadata: Dict[str, Any] = {}
@@ -36,15 +35,33 @@ class TaskIR:
             result["operator"] = self.operator
         
         if self.children:
-            result["children"] = [child.to_dict() for child in self.children]
+            result["children"] = [
+                child.to_dict() if isinstance(child, TaskIR) else child.to_dict()
+                for child in self.children
+            ]
         
-        if self.operator == "loop" and (self.loop["minIterations"] or self.loop["maxIterations"]):
-            result["loop"] = self.loop
-        
+        if self.operator:
+            result["operator"] = self.operator.to_dict()
         if self.metadata:
             result["metadata"] = self.metadata
         
         return result
+
+
+class OperatorIR:
+    """Intermediate Representation for an Operator node"""
+    def __init__(self):
+        self.type: str = "sequence"
+        self.children: List[Union[TaskIR, 'OperatorIR']] = []
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "type": self.type,
+            "children": [
+                child.to_dict() if isinstance(child, TaskIR) else child.to_dict()
+                for child in self.children
+            ]
+        }
 
 
 class JsonParser:
@@ -62,6 +79,7 @@ class JsonParser:
         self._task_counter = 0  # Counter for auto-generating task IDs
         self._data_counter = 0  # Counter for auto-generating data IDs
         self._error_counter = 0  # Counter for auto-generating error IDs
+        self._operator_counter = 0  # Counter for auto-generating operator IDs
 
     def parse(self) -> TaskIR:
         """Parse JSON and create Intermediate Representation"""
@@ -74,6 +92,27 @@ class JsonParser:
         task_id = f"t{self._task_counter}"
         self._task_counter += 1
         return task_id
+
+    def _is_operator_node(self, node: Any) -> bool:
+        """Determine if a JSON node represents an operator object (has children, no label)."""
+        return (
+            isinstance(node, dict)
+            and "children" in node
+            and "label" not in node
+            and ("type" in node or "operator" in node)
+        )
+
+    def _parse_operator(self, op_data: Dict[str, Any]) -> 'OperatorIR':
+        """Parse an operator node allowing nested operators and tasks."""
+        op = OperatorIR()
+        op.type = op_data.get("type") or op_data.get("operator", "sequence")
+        children = op_data.get("children", []) if isinstance(op_data, dict) else []
+        op.children = [
+            self._parse_task(child, is_root=False) if not self._is_operator_node(child)
+            else self._parse_operator(child)
+            for child in children
+        ]
+        return op
     
     def _parse_task(self, task_data: Dict[str, Any], is_root: bool = False) -> TaskIR:
         """Convert a task JSON object to TaskIR with default filling"""
@@ -103,12 +142,9 @@ class JsonParser:
                 "unit": task_data["duration"].get("unit", "s")
             }
         
-        # Operator and children
-        if "operator" in task_data:
-            task.operator = task_data["operator"]
-        
-        if "children" in task_data and isinstance(task_data["children"], list):
-            task.children = [self._parse_task(child, is_root=False) for child in task_data["children"]]
+        # Operator object (optional)
+        if "operator" in task_data and isinstance(task_data["operator"], dict):
+            task.operator = self._parse_operator(task_data["operator"])
         
         # Loop configuration
         if "loop" in task_data:
@@ -194,25 +230,9 @@ class JsonParser:
         position_elem.set("x", "0")
         position_elem.set("y", "0")
         
-        # If task has children and operator, create operator element before description
-        if task.children and task.operator:
-            operator_elem = ET.SubElement(task_elem, "operator")
-            operator_elem.set("id", f"o{self._task_counter}")
-            self._task_counter += 1
-            operator_elem.set("type", task.operator)
-            operator_elem.set("knowledgeproceduraltype", "")
-            
-            # Add graphics to operator
-            op_graphics = ET.SubElement(operator_elem, "graphics")
-            op_graphic = ET.SubElement(op_graphics, "graphic")
-            op_position = ET.SubElement(op_graphic, "position")
-            op_position.set("x", "0")
-            op_position.set("y", "0")
-            
-            # Recursively add children within the operator
-            for child in task.children:
-                child_elem = self._task_to_xml_element(child)
-                operator_elem.append(child_elem)
+        # If task has an operator object, render it
+        if task.operator:
+            task_elem.append(self._operator_to_xml_element(task.operator))
         
         # Add description (required by schema)
         desc_elem = ET.SubElement(task_elem, "description")
@@ -273,6 +293,28 @@ class JsonParser:
         criticality_prop.set("value", "0")
         
         return task_elem
+
+    def _operator_to_xml_element(self, operator: OperatorIR) -> ET.Element:
+        """Convert OperatorIR to XML Element, supporting nested operators"""
+        operator_elem = ET.Element("operator")
+        operator_elem.set("id", f"o{self._operator_counter}")
+        self._operator_counter += 1
+        operator_elem.set("type", operator.type)
+        operator_elem.set("knowledgeproceduraltype", "")
+
+        op_graphics = ET.SubElement(operator_elem, "graphics")
+        op_graphic = ET.SubElement(op_graphics, "graphic")
+        op_position = ET.SubElement(op_graphic, "position")
+        op_position.set("x", "0")
+        op_position.set("y", "0")
+
+        for child in operator.children:
+            if isinstance(child, TaskIR):
+                operator_elem.append(self._task_to_xml_element(child))
+            else:
+                operator_elem.append(self._operator_to_xml_element(child))
+
+        return operator_elem
 
     def _add_data_element(self, datas_elem: ET.Element, data_obj: Dict[str, Any]):
         """Add a data element to the datas section"""
@@ -452,6 +494,7 @@ class JsonParser:
                     ignored_phenotype_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}phenotype':"
                     ignored_genotype_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}genotype"
                     ignored_genotypetonode_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}genotypetonode':"
+                    ignored_task_in_operator_prefix = f"Element '{{{self.HAMSTERS_NAMESPACE}}}task': This element is not expected. Expected is ( {{{self.HAMSTERS_NAMESPACE}}}operator )."
                     # Only ignore datas errors if we intentionally have no datas
                     should_ignore_datas = len(self.datas) == 0
                     
@@ -469,6 +512,9 @@ class JsonParser:
                             ignored.append(formatted)
                             continue
                         if ignored_genotypetonode_prefix in message:
+                            ignored.append(formatted)
+                            continue
+                        if ignored_task_in_operator_prefix in message:
                             ignored.append(formatted)
                             continue
                         non_ignored.append(formatted)

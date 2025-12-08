@@ -3,25 +3,6 @@
     "label": "Access City Digital Twin",
     "type": "goal",
     "description": "Example with data objects (DOD)",
-    "operator": "sequence",
-    "children": [
-        {
-            "label": "User accesses City DT",
-            "type": "user"
-        },
-        {
-            "label": "User reads information",
-            "type": "user"
-        },
-        {
-            "label": "System displays on screen",
-            "type": "system"
-        },
-        {
-            "label": "System stores information",
-            "type": "system"
-        }
-    ],
     "datas": [
         {
             "type": "objectdod",
@@ -35,5 +16,26 @@
             "type": "deviceouputdod",
             "description": "Screen"
         }
-    ]
+    ],
+    "operator": {
+        "type": "sequence",
+        "children": [
+            {
+                "label": "User accesses City DT",
+                "type": "user"
+            },
+            {
+                "label": "User reads information",
+                "type": "user"
+            },
+            {
+                "label": "System displays on screen",
+                "type": "system"
+            },
+            {
+                "label": "System stores information",
+                "type": "system"
+            }
+        ]
+    }
 }

@@ -3,13 +3,6 @@
     "label": "Postal Code Entry with Error Model",
     "type": "goal",
     "description": "Example with error descriptions",
-    "children": [
-        {
-            "id": "t15",
-            "label": "User enters postal code",
-            "type": "user"
-        }
-    ],
     "errors": [
         {
             "type": "humanerror",
@@ -23,5 +16,15 @@
             "type": "rbm",
             "description": "Rule Based Mistake"
         }
-    ]
+    ],
+    "operator": {
+        "type": "sequence",
+        "children": [
+            {
+                "id": "t15",
+                "label": "User enters postal code",
+                "type": "user"
+            }
+        ]
+    }
 }

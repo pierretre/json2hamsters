@@ -39,18 +39,8 @@
             "maxLength": 1000
         },
         "operator": {
-            "type": "string",
-            "description": "Temporal operator",
-            "enum": [
-                "sequence",
-                "choice",
-                "order-independent",
-                "concurrency",
-                "loop",
-                "optional",
-                "interrupt",
-                "suspend_resume"
-            ]
+            "$ref": "#/definitions/operator",
+            "description": "Optional operator node containing this task's sub-structure"
         },
         "duration": {
             "type": "object",
@@ -103,14 +93,6 @@
         "optional": {
             "type": "boolean",
             "description": "Whether the task is optional"
-        },
-        "children": {
-            "type": "array",
-            "description": "Child tasks",
-            "items": {
-                "$ref": "#"
-            },
-            "maxItems": 100
         },
         "metadata": {
             "type": "object",
@@ -190,6 +172,49 @@
                 "additionalProperties": false
             },
             "maxItems": 100
+        }
+    },
+    "definitions": {
+        "operator": {
+            "type": "object",
+            "description": "Temporal operator node that can chain operators without intermediate tasks",
+            "properties": {
+                "type": {
+                    "type": "string",
+                    "description": "Temporal operator",
+                    "enum": [
+                        "sequence",
+                        "choice",
+                        "order-independent",
+                        "concurrency",
+                        "loop",
+                        "optional",
+                        "interrupt",
+                        "suspend_resume"
+                    ]
+                },
+                "children": {
+                    "type": "array",
+                    "description": "Children of the operator (tasks or nested operators)",
+                    "items": {
+                        "oneOf": [
+                            {
+                                "$ref": "#"
+                            },
+                            {
+                                "$ref": "#/definitions/operator"
+                            }
+                        ]
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                }
+            },
+            "required": [
+                "type",
+                "children"
+            ],
+            "additionalProperties": false
         }
     },
     "required": [
