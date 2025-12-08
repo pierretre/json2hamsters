@@ -308,13 +308,27 @@ class JsonParser:
         op_position.set("x", "0")
         op_position.set("y", "0")
 
-        for child in operator.children:
+        spacing_x = 200
+        base_y = 200  # place children below the parent task/operator
+        for idx, child in enumerate(operator.children):
+            child_x = idx * spacing_x
             if isinstance(child, TaskIR):
-                operator_elem.append(self._task_to_xml_element(child))
+                child_elem = self._task_to_xml_element(child)
+                self._set_position(child_elem, child_x, base_y)
+                operator_elem.append(child_elem)
             else:
-                operator_elem.append(self._operator_to_xml_element(child))
+                child_elem = self._operator_to_xml_element(child)
+                self._set_position(child_elem, child_x, base_y)
+                operator_elem.append(child_elem)
 
         return operator_elem
+
+    def _set_position(self, elem: ET.Element, x: int, y: int):
+        """Set the first graphics/graphic/position of an element if present."""
+        pos = elem.find("graphics/graphic/position")
+        if pos is not None:
+            pos.set("x", str(x))
+            pos.set("y", str(y))
 
     def _add_data_element(self, datas_elem: ET.Element, data_obj: Dict[str, Any]):
         """Add a data element to the datas section"""
@@ -522,7 +536,14 @@ class JsonParser:
                         return (False, "; ".join(non_ignored[:3]) if non_ignored else "Schema validation failed")
                     # All errors are in the ignored set. Report that violations were detected but ignored.
                     if ignored:
-                        print(f"Schema validation: {len(ignored)} rule(s) violated but ignored")
+                        blue = "\033[34m"
+                        reset = "\033[0m"
+                        print(f"{blue}Schema validation: {len(ignored)} rule(s) violated but ignored{reset}")
+                        # Show a short bullet list of the ignored rule messages (first 5 to keep concise)
+                        for msg in ignored[:5]:
+                            print(f"{blue}  - {msg}{reset}")
+                        if len(ignored) > 5:
+                            print(f"{blue}  - ... and {len(ignored) - 5} more{reset}")
                     return (True, "")
                     
             except ImportError:

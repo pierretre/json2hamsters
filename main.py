@@ -65,7 +65,9 @@ if __name__ == "__main__":
                 f.write(xml_output)
             
             if is_valid:
-                print(f"OK - Output: {output_file}")
+                green_bold = "\033[1;32m"
+                reset = "\033[0m"
+                print(f"{green_bold}OK - Output: {output_file}{reset}")
             else:
                 print(f"FAIL: {error_msg}")
                 sys.exit(1)
@@ -82,7 +84,9 @@ if __name__ == "__main__":
             
             with open(output_file, 'w') as f:
                 f.write(ir_json)
-            print(f"OK - Output: {output_file}")
+            green_bold = "\033[1;32m"
+            reset = "\033[0m"
+            print(f"{green_bold}OK - Output: {output_file}{reset}")
         else:
             print("FAIL: Unknown format")
             sys.exit(1)
