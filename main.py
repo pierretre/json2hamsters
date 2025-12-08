@@ -2,14 +2,15 @@ import json
 import sys
 from pathlib import Path
 from JsonParser import JsonParser
+from json_schema import validate_json_schema
 
 if __name__ == "__main__":
-        if len(sys.argv) < 2:
-            print("Usage: python main.py <input.json> [--hmst|--xml|--ir]")
-            sys.exit(1)
+    if len(sys.argv) < 2:
+        print("Usage: python main.py <input.json> [--hmst|--xml|--ir]")
+        sys.exit(1)
     
-        filepath = sys.argv[1]
-        output_format = sys.argv[2] if len(sys.argv) > 2 else "--hmst"
+    filepath = sys.argv[1]
+    output_format = sys.argv[2] if len(sys.argv) > 2 else "--hmst"
     
     # Ensure generated folder exists
     generated_dir = Path("generated")
@@ -19,6 +20,12 @@ if __name__ == "__main__":
         # Read and parse JSON
         with open(filepath, 'r') as file:
             json_data = json.load(file)
+        
+        # Validate JSON schema
+        is_valid, error_msg = validate_json_schema(json_data)
+        if not is_valid:
+            print(f"FAIL: JSON schema validation failed - {error_msg}")
+            sys.exit(1)
         
         # Create parser and convert to IR
         parser = JsonParser(json_data)

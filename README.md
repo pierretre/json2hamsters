@@ -5,6 +5,7 @@ A Python parser that converts JSON task definitions to HAMSTERS v7 XML format (.
 ## Features
 
 - ✅ **JSON to HAMSTERS Conversion**: Converts JSON task definitions to HAMSTERS v7 XML format (.hmst)
+- ✅ **JSON Schema Validation**: Validates input JSON against strict schema (prevents invalid/excessive elements)
 - ✅ **Auto Task IDs**: Automatically generates lowercase task IDs (t0, t1, t2...) if not provided
 - ✅ **Operator Nesting**: Operators nest their children tasks within the XML structure
 - ✅ **Intermediate Representation**: Generates JSON IR with auto-filled default values
@@ -32,6 +33,7 @@ pip install -r requirements.txt
 This installs:
 
 - `lxml` (6.0.0+) - For full XSD schema validation
+- `jsonschema` (4.0.0+) - For input JSON schema validation
 
 ## Usage
 
@@ -69,7 +71,34 @@ Output:
 
 ## Validation
 
-When running with `--hmst` or `--xml` format, validation is performed by default:
+### JSON Schema Validation
+
+All input JSON files are automatically validated against a strict schema before processing:
+
+**Allowed properties:**
+
+- `label` (required, string, 1-200 chars)
+- `id` (optional, string, alphanumeric + underscore/hyphen)
+- `type` (optional, enum: abstract, goal, user, system, cognitive, interaction, cooperative)
+- `description` (optional, string, max 1000 chars)
+- `operator` (optional, enum: sequence, choice, order-independent, concurrency, loop, optional, interrupt, suspend_resume)
+- `duration` (optional, object: min/max 0-1000000, unit: ms/s/min/h)
+- `loop` (optional, object: minIterations/maxIterations 0-10000)
+- `optional` (optional, boolean)
+- `children` (optional, array, max 100 items)
+- `metadata` (optional, object, max 50 properties)
+
+**Strict mode:** `additionalProperties: false` - No unknown properties allowed
+
+**Example validation failure:**
+
+```text
+FAIL: JSON schema validation failed - root: Additional properties are not allowed ('invalid_field' was unexpected)
+```
+
+### XML Schema Validation
+
+When running with `--hmst` or `--xml` format, XML validation is performed after generation:
 
 1. **With lxml installed**: Full XSD schema validation against HAMSTERS v7
    - Downloads schema from: `https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd`
@@ -246,10 +275,12 @@ Note:
 
 ## Implementation Notes
 
+- **JSON Schema Validation**: Input JSON is validated before parsing; unknown properties and invalid values are rejected
 - **Empty datas**: The `<datas/>` element is intentionally empty; XSD validation errors about this are suppressed
 - **Operator nesting**: When a task has both an `operator` and `children`, the operator element contains the child tasks
 - **Default types**: Root tasks default to `goal`, all other tasks default to `abstract` (unless explicitly specified)
 - **Auto-generated IDs**: Task and operator IDs are generated sequentially (t0, t1..., o0, o1...) in lowercase
+- **Limits**: Max 100 children per task, max 50 metadata properties, durations 0-1000000, iterations 0-10000
 
 ## License
 

@@ -1,0 +1,8 @@
+{
+    "label": "Test",
+    "duration": {
+        "min": -5,
+        "max": 999999999,
+        "unit": "s"
+    }
+}

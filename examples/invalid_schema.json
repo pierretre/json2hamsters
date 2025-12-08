@@ -1,0 +1,5 @@
+{
+    "invalid_field": "This should not be allowed",
+    "label": "Test Task",
+    "extra_unknown_prop": 123
+}
