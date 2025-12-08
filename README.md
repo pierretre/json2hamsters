@@ -1,13 +1,15 @@
 # JSON to HAMSTERS Converter
 
-A Python parser that converts JSON task definitions to HAMSTERS v7 XML format with integrated IR (Intermediate Representation) and schema validation.
+A Python parser that converts JSON task definitions to HAMSTERS v7 XML format (.hmst files) with integrated IR (Intermediate Representation) and schema validation.
 
 ## Features
 
-- ✅ **JSON to XML Conversion**: Converts JSON task definitions to HAMSTERS v7 XML format
+- ✅ **JSON to HAMSTERS Conversion**: Converts JSON task definitions to HAMSTERS v7 XML format (.hmst)
+- ✅ **Auto Task IDs**: Automatically generates lowercase task IDs (t0, t1, t2...) if not provided
+- ✅ **Operator Nesting**: Operators nest their children tasks within the XML structure
 - ✅ **Intermediate Representation**: Generates JSON IR with auto-filled default values
 - ✅ **XML Schema Validation**: Validates against HAMSTERS v7 XSD schema (with lxml)
-- ✅ **Comprehensive Testing**: 18 unit tests covering all major functionality
+- ✅ **Empty datas Section**: Generates `<datas/>` (empty by design, validation error ignored)
 - ✅ **Clean Output**: Minimal console output (OK/FAIL status only)
 
 ## Setup
@@ -33,16 +35,26 @@ This installs:
 
 ## Usage
 
-### Convert JSON to XML (with validation)
+### Convert JSON to HAMSTERS format (default)
+
+```bash
+python3 main.py ./in/Scenario1.json
+# or explicitly
+python3 main.py ./in/Scenario1.json --hmst
+```
+
+Output:
+
+- **Console**: `OK - Output: generated/Scenario1.hmst` or `FAIL: <error message>`
+- **File**: `generated/Scenario1.hmst` (HAMSTERS v7 XML format)
+
+### Convert JSON to XML (legacy)
 
 ```bash
 python3 main.py ./in/Scenario1.json --xml
 ```
 
-Output:
-
-- **Console**: `OK` or `FAIL: <error message>`
-- **File**: `generated/Scenario1.xml`
+Output: Same as `--hmst` (both produce `.hmst` files)
 
 ### Convert JSON to IR
 
@@ -52,17 +64,18 @@ python3 main.py ./in/Scenario2.json --ir
 
 Output:
 
-- **Console**: `OK`
+- **Console**: `OK - Output: generated/Scenario2_ir.json`
 - **File**: `generated/Scenario2_ir.json`
 
 ## Validation
 
-When running with `--xml` format, validation is performed by default:
+When running with `--hmst` or `--xml` format, validation is performed by default:
 
 1. **With lxml installed**: Full XSD schema validation against HAMSTERS v7
    - Downloads schema from: `https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd`
    - Schema cached in: `/tmp/hamsters_v7.xsd`
    - Shows detailed error messages
+   - **Special handling**: Validation errors about empty `<datas/>` are ignored (by design)
 
 2. **Without lxml**: Basic XML structure validation
    - Checks root element, namespace, and required attributes
@@ -70,19 +83,20 @@ When running with `--xml` format, validation is performed by default:
 
 ### Example Output
 
-```
+```text
 Using lxml for full schema validation...
 Using cached schema: /tmp/hamsters_v7.xsd (24461 bytes)
-OK
+Schema validation warnings ignored for empty <datas /> block.
+OK - Output: generated/Scenario1.hmst
 ```
 
 Or on validation failure:
 
-```
+```text
 Using lxml for full schema validation...
 Downloading HAMSTERS schema from https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd...
 Schema downloaded successfully: /tmp/hamsters_v7.xsd (24461 bytes)
-FAIL: Line 2: Element 'hamsters': No matching global declaration available for the validation root.
+FAIL: Line 12: Element 'task': Missing required attribute 'type'
 ```
 
 ## Testing
@@ -112,7 +126,7 @@ Total: **18 tests** ✅
 
 ## File Structure
 
-```
+```text
 json2hamsters/
 ├── JsonParser.py          # Main parser and validator
 ├── main.py                # CLI entry point
@@ -121,7 +135,9 @@ json2hamsters/
 ├── in/                    # Input JSON files
 │   ├── Scenario1.json
 │   └── Scenario2.json
-├── generated/             # Output files (XML, IR JSON)
+├── generated/             # Output files (.hmst, IR JSON)
+│   ├── Scenario1.hmst
+│   └── Scenario2.hmst
 └── venv/                  # Virtual environment
 ```
 
@@ -129,71 +145,111 @@ json2hamsters/
 
 The parser supports the following HAMSTERS task model elements:
 
-- **Task Types**: abstract, user, system, cognitive, interaction, cooperative
-- **Temporal Operators**: sequence, choice, concurrency, order-independent, loop, optional, interrupt, suspend_resume
-- **Duration**: min, max, unit (ms, s, min, h)
-- **Children**: Nested task hierarchies
+### Task Properties
+
+- **Task Types**: abstract, goal, user, system, cognitive, interaction, cooperative
+  - Root task defaults to `goal` if type not specified
+  - Child tasks default to `abstract` if type not specified
+- **Auto IDs**: Task IDs are auto-generated (t0, t1, t2...) if not provided in JSON
+- **Labels**: Task labels (required, used as `name` in hamsters root)
+- **Description**: Task descriptions (optional)
+- **Optional**: Tasks can be marked as optional
+
+### Operators and Structure
+
+- **Temporal Operators**: sequence, choice, order-independent, loop (operators nest children)
+- **Operator Nesting**: When a task has operator + children, the operator wraps the children in XML
+- **Duration**: min, max, unit (default: 0, 0, s)
 - **Loop Configuration**: minIterations, maxIterations
-- **Metadata**: Free-form additional attributes
+
+### Generated XML Structure
+
+- **Namespace**: `https://www.irit.fr/ICS/HAMSTERS/7.0`
+- **Root Elements**: nodes, datas (empty), errors, security, parameters, instancevalues, parametersdefinitions, mainproperties
+- **Core Properties**: simulation, authority, criticality categories with default values
+- **Graphics**: Position elements (x=0, y=0) for all tasks and operators
 
 ## Example Input (JSON)
 
 ```json
 {
-  "id": "root_task",
-  "label": "Make Coffee",
-  "type": "user",
-  "operator": "sequence",
-  "duration": {
-    "min": 5,
-    "max": 10,
-    "unit": "min"
-  },
-  "children": [
-    {
-      "id": "boil_water",
-      "label": "Boil Water",
-      "type": "system"
-    }
-  ]
+  "label": "Login Procedure",
+  "description": "User authentication workflow",
+  "operator": "sequence"
 }
 ```
 
-## Example Output (XML)
+Note:
+
+- No explicit `id` → Auto-generated as `t0`
+- No explicit `type` → Defaults to `goal` (root task)
+- No `children` → Single task scenario
+- `operator` is specified but has no children (valid)
+
+## Example Output (.hmst / HAMSTERS XML)
 
 ```xml
-<?xml version="1.0"?>
-<hamsters xmlns="http://www.irit.fr/ICS/HAMSTERS/7.0" 
-          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-          name="Make Coffee"
-          version="7"
-          xsi:schemaLocation="http://www.irit.fr/ICS/HAMSTERS/7.0 https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd">
-  <Task id="root_task" type="user">
-    <Label>Make Coffee</Label>
-    <Duration unit="min">
-      <Min>5</Min>
-      <Max>10</Max>
-    </Duration>
-    <Operator>sequence</Operator>
-    <Children>
-      <Task id="boil_water" type="system">
-        <Label>Boil Water</Label>
-        <Duration unit="s">
-          <Min>0</Min>
-          <Max>0</Max>
-        </Duration>
-      </Task>
-    </Children>
-  </Task>
+<?xml version="1.0" encoding="UTF-8"?>
+<hamsters xmlns="https://www.irit.fr/ICS/HAMSTERS/7.0" 
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+          name="Login Procedure" 
+          version="7" 
+          xsi:schemaLocation="https://www.irit.fr/ICS/HAMSTERS/7.0 https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd">
+    <nodes>
+        <task id="t0" type="goal" copy="false" knowledgeproceduraltype="">
+            <graphics>
+                <graphic folded="false">
+                    <position x="0" y="0"/>
+                </graphic>
+            </graphics>
+            <description>User authentication workflow</description>
+            <xlproperties/>
+            <coreproperties>
+                <categories>
+                    <category name="simulation">
+                        <property name="duration" value="false"/>
+                        <property name="iterative" value="0"/>
+                        <property name="optional" value="false"/>
+                        <property name="minexectime" value="0"/>
+                        <property name="maxexectime" value="0"/>
+                    </category>
+                    <category name="authority">
+                        <property name="responsibility" type="java.lang.Boolean" value="false"/>
+                        <property name="authority" type="java.lang.Boolean" value="false"/>
+                    </category>
+                    <category name="criticality">
+                        <property name="criticality" type="java.lang.Integer" value="0"/>
+                    </category>
+                </categories>
+            </coreproperties>
+        </task>
+    </nodes>
+    <datas/>
+    <errors/>
+    <security/>
+    <parameters/>
+    <instancevalues/>
+    <parametersdefinitions/>
+    <mainproperties>
+        <property name="timemanagement" type="fr.irit.ics.circus.hamsters.api.TimeManagement" value="NORMAL"/>
+    </mainproperties>
 </hamsters>
 ```
 
 ## Schema Information
 
 - **Version**: HAMSTERS v7
-- **Namespace**: `http://www.irit.fr/ICS/HAMSTERS/7.0`
+- **Namespace**: `https://www.irit.fr/ICS/HAMSTERS/7.0` (HTTPS)
 - **Schema URL**: `https://www.irit.fr/recherches/ICS/xsd/hamsters/v7/v7.xsd`
 - **Cache Location**: `/tmp/hamsters_v7.xsd`
+- **Output Extension**: `.hmst` (HAMSTERS format)
+
+## Implementation Notes
+
+- **Empty datas**: The `<datas/>` element is intentionally empty; XSD validation errors about this are suppressed
+- **Operator nesting**: When a task has both an `operator` and `children`, the operator element contains the child tasks
+- **Default types**: Root tasks default to `goal`, all other tasks default to `abstract` (unless explicitly specified)
+- **Auto-generated IDs**: Task and operator IDs are generated sequentially (t0, t1..., o0, o1...) in lowercase
 
 ## License
 
