@@ -18,7 +18,6 @@ class TaskIR:
         self.operator: Optional['OperatorIR'] = None
         self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
         self.optional: bool = False
-        self.metadata: Dict[str, Any] = {}
         self.refs: List[Dict[str, str]] = []
 
     def to_dict(self) -> Dict[str, Any]:
@@ -44,9 +43,6 @@ class TaskIR:
         
         if self.operator:
             result["operator"] = self.operator.to_dict()
-        if self.metadata:
-            result["metadata"] = self.metadata
-        
         return result
 
 
@@ -155,14 +151,13 @@ class JsonParser:
                 "maxIterations": task_data["loop"].get("maxIterations", 0)
             }
         
-        # Metadata
-        task.metadata = task_data.get("metadata", {})
-
-        # References to datas and errors with link metadata
+        # References to datas and errors with link metadata (support string shorthand)
         if isinstance(task_data.get("refs", []), list):
             refs_list = []
             for ref in task_data.get("refs", []):
-                if isinstance(ref, dict) and "id" in ref:
+                if isinstance(ref, str):
+                    refs_list.append({"id": ref, "target": "data", "linkType": ""})
+                elif isinstance(ref, dict) and "id" in ref:
                     refs_list.append({
                         "id": str(ref.get("id", "")),
                         "target": str(ref.get("target", "data")),
@@ -218,6 +213,11 @@ class JsonParser:
                 self._data_counter += 1
             resolved_data_ids.append(data_id)
 
+        # Prepare default link type per DOD kind
+        device_dods = {"deviceouputdod", "deviceinputdod", "deviceiodod"}
+        def default_link_type(data_type: str) -> str:
+            return "USES_TYPE" if data_type in device_dods else "TEST_TYPE"
+
         # Build mapping data_id -> list of (task id, link type) that reference it (after ID resolution)
         data_links_map = {}
         if self.task_ir:
@@ -234,9 +234,11 @@ class JsonParser:
         datas_elem = ET.SubElement(root, "datas")
         if self.datas:
             for data_obj, data_id in zip(self.datas, resolved_data_ids):
-                # Auto-generate link entries from refs with optional linkType
+                data_type = data_obj.get("type", "")
+                fallback_link_type = default_link_type(data_type)
+                # Auto-generate link entries from refs with optional linkType; default per DOD type
                 auto_links = [
-                    {"taskId": task_id, "linkType": link_type}
+                    {"taskId": task_id, "linkType": (link_type or fallback_link_type)}
                     for task_id, link_type in data_links_map.get(data_id, [])
                 ]
                 combined_links = data_obj.get("links", []) + auto_links
@@ -416,7 +418,8 @@ class JsonParser:
             link_elem = ET.SubElement(data_elem, "link")
             link_elem.set("feature", "none")
             link_elem.set("sourceid", link.get("taskId", ""))
-            link_elem.set("type", link.get("linkType", ""))
+            if link.get("linkType"):
+                link_elem.set("type", link.get("linkType"))
             link_elem.set("value", "")
             
             # Add empty points element

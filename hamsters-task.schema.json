@@ -94,12 +94,6 @@
             "type": "boolean",
             "description": "Whether the task is optional"
         },
-        "metadata": {
-            "type": "object",
-            "description": "Additional metadata",
-            "additionalProperties": true,
-            "maxProperties": 50
-        },
         "datas": {
             "type": "array",
             "description": "Data objects (DOD - Description of Data) used in the task model",
