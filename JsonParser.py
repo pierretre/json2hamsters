@@ -83,7 +83,18 @@ class JsonParser:
         """Parse JSON and create Intermediate Representation"""
         if isinstance(self.json_data, dict):
             self.task_ir = self._parse_task(self.json_data, is_root=True)
+            self._validate_leaf_tasks(self.task_ir)
         return self.task_ir
+
+    def _validate_leaf_tasks(self, root_task: TaskIR):
+        """Ensure no leaf task is typed as abstract."""
+        red_bold = "\033[1;31m"
+        reset = "\033[0m"
+        for t in self._iter_tasks(root_task):
+            has_children = bool(t.operator and t.operator.children)
+            if not has_children and t.type == "abstract":
+                print(f"{red_bold}Error: Leaf task '{t.label}' (id: {t.id}) cannot be of type 'abstract'.{reset}")
+                raise ValueError(f"Leaf task '{t.label}' (id: {t.id}) cannot be of type 'abstract'.")
 
     def _generate_task_id(self) -> str:
         """Generate incremental task ID (lowercase)"""
@@ -116,17 +127,12 @@ class JsonParser:
         """Convert a task JSON object to TaskIR with default filling"""
         task = TaskIR()
         
-        # Required fields - auto-generate ID if not provided
-        task.id = task_data.get("id") if "id" in task_data else self._generate_task_id()
+        # Always auto-generate ID (t + counter)
+        task.id = self._generate_task_id()
         task.label = task_data.get("label", "Unnamed Task")
-        
-        # Apply type rules: if type explicitly provided, use it; otherwise root is 'goal', others are 'abstract'
-        if "type" in task_data:
-            # If type is explicitly specified in JSON, always use it
-            task.type = task_data["type"]
-        else:
-            # If type is not specified, apply default rules
-            task.type = "goal" if is_root else "abstract"
+
+        # Defer default type until we know if this task is a leaf
+        explicit_type = task_data.get("type")
         
         # Optional fields
         task.description = task_data.get("description", "")
@@ -143,6 +149,18 @@ class JsonParser:
         # Operator object (optional)
         if "operator" in task_data and isinstance(task_data["operator"], dict):
             task.operator = self._parse_operator(task_data["operator"])
+
+        # Apply type rules now that we know whether it is a leaf
+        if explicit_type is not None:
+            task.type = explicit_type
+        else:
+            has_children = bool(task.operator and task.operator.children)
+            if is_root:
+                task.type = "goal"
+            elif not has_children:
+                task.type = "inputouput"
+            else:
+                task.type = "abstract"
         
         # Loop configuration
         if "loop" in task_data:

@@ -9,11 +9,6 @@
             "type": "string",
             "description": "JSON Schema reference for IDE support"
         },
-        "id": {
-            "type": "string",
-            "description": "Unique task identifier (auto-generated if omitted)",
-            "pattern": "^[a-zA-Z0-9_-]+$"
-        },
         "label": {
             "type": "string",
             "description": "Task label (required)",
@@ -29,8 +24,8 @@
                 "user",
                 "system",
                 "cognitive",
-                "interaction",
-                "cooperative"
+                "cooperative",
+                "inputouput"
             ]
         },
         "description": {
