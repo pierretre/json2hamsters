@@ -4,7 +4,7 @@
     "type": "goal",
     "description": "As a DT Operator, I want to define a new incident rule for a certain type of event that I want to track. Purpose: Maintenance and incident logging",
     "operator": {
-        "type": "sequence",
+        "type": "enable",
         "children": [
             {
                 "label": "User clicks the create button"
@@ -29,7 +29,7 @@
             {
                 "label": "User completes the form",
                 "operator": {
-                    "type": "sequence",
+                    "type": "enable",
                     "children": [
                         {
                             "label": "User fills in the form",
@@ -39,7 +39,7 @@
                                     {
                                         "label": "User must fill in the Label field",
                                         "operator": {
-                                            "type": "sequence",
+                                            "type": "enable",
                                             "children": [
                                                 {
                                                     "label": "Input text"
@@ -50,7 +50,7 @@
                                     {
                                         "label": "User must fill in the Severity of the incident",
                                         "operator": {
-                                            "type": "sequence",
+                                            "type": "enable",
                                             "children": [
                                                 {
                                                     "label": "User selects Severity",
@@ -60,7 +60,7 @@
                                                             {
                                                                 "label": "Choose Critical",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Critical"
@@ -75,7 +75,7 @@
                                                             {
                                                                 "label": "Choose Major",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Major"
@@ -90,7 +90,7 @@
                                                             {
                                                                 "label": "Choose Minor",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Minor"
@@ -111,7 +111,7 @@
                                     {
                                         "label": "User must fill in the Description field",
                                         "operator": {
-                                            "type": "sequence",
+                                            "type": "enable",
                                             "children": [
                                                 {
                                                     "label": "Input text"
@@ -123,7 +123,7 @@
                                         "label": "User can fill in the Category",
                                         "optional": true,
                                         "operator": {
-                                            "type": "sequence",
+                                            "type": "enable",
                                             "children": [
                                                 {
                                                     "label": "User selects Category",
@@ -133,7 +133,7 @@
                                                             {
                                                                 "label": "Choose Hardware",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Hardware"
@@ -148,7 +148,7 @@
                                                             {
                                                                 "label": "Choose Software",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Software"
@@ -163,7 +163,7 @@
                                                             {
                                                                 "label": "Choose Network",
                                                                 "operator": {
-                                                                    "type": "sequence",
+                                                                    "type": "enable",
                                                                     "children": [
                                                                         {
                                                                             "label": "User clicks Network"
@@ -187,7 +187,7 @@
                         {
                             "label": "User validates the form",
                             "operator": {
-                                "type": "sequence",
+                                "type": "enable",
                                 "children": [
                                     {
                                         "label": "User clicks validate button"
@@ -205,7 +205,7 @@
             {
                 "label": "User saves the rule",
                 "operator": {
-                    "type": "sequence",
+                    "type": "enable",
                     "children": [
                         {
                             "label": "User clicks save button"

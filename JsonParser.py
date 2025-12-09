@@ -19,6 +19,7 @@ class TaskIR:
         self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
         self.optional: bool = False
         self.metadata: Dict[str, Any] = {}
+        self.refs: List[Dict[str, str]] = []
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert IR to dictionary"""
@@ -28,7 +29,8 @@ class TaskIR:
             "type": self.type,
             "description": self.description,
             "duration": self.duration,
-            "optional": self.optional
+            "optional": self.optional,
+            "refs": self.refs
         }
         
         if self.operator:
@@ -51,7 +53,7 @@ class TaskIR:
 class OperatorIR:
     """Intermediate Representation for an Operator node"""
     def __init__(self):
-        self.type: str = "sequence"
+        self.type: str = "enable"
         self.children: List[Union[TaskIR, 'OperatorIR']] = []
 
     def to_dict(self) -> Dict[str, Any]:
@@ -105,7 +107,7 @@ class JsonParser:
     def _parse_operator(self, op_data: Dict[str, Any]) -> 'OperatorIR':
         """Parse an operator node allowing nested operators and tasks."""
         op = OperatorIR()
-        op.type = op_data.get("type") or op_data.get("operator", "sequence")
+        op.type = op_data.get("type") or op_data.get("operator", "enable")
         children = op_data.get("children", []) if isinstance(op_data, dict) else []
         op.children = [
             self._parse_task(child, is_root=False) if not self._is_operator_node(child)
@@ -155,8 +157,38 @@ class JsonParser:
         
         # Metadata
         task.metadata = task_data.get("metadata", {})
+
+        # References to datas and errors with link metadata
+        if isinstance(task_data.get("refs", []), list):
+            refs_list = []
+            for ref in task_data.get("refs", []):
+                if isinstance(ref, dict) and "id" in ref:
+                    refs_list.append({
+                        "id": str(ref.get("id", "")),
+                        "target": str(ref.get("target", "data")),
+                        "linkType": str(ref.get("linkType", ""))
+                    })
+            task.refs = refs_list
         
         return task
+
+    def _iter_tasks(self, task: TaskIR):
+        """Yield all TaskIR nodes starting from the given task (depth-first)."""
+        yield task
+        if task.operator:
+            for child in task.operator.children:
+                if isinstance(child, TaskIR):
+                    yield from self._iter_tasks(child)
+                else:
+                    yield from self._iter_operator_tasks(child)
+
+    def _iter_operator_tasks(self, operator: 'OperatorIR'):
+        """Yield TaskIR nodes contained within an OperatorIR."""
+        for child in operator.children:
+            if isinstance(child, TaskIR):
+                yield from self._iter_tasks(child)
+            else:
+                yield from self._iter_operator_tasks(child)
 
     def to_xml(self) -> str:
         """Convert TaskIR to formatted XML string with HAMSTERS schema"""
@@ -177,11 +209,38 @@ class JsonParser:
         # Add tasks recursively to nodes
         self._add_tasks_recursively(nodes_elem, self.task_ir)
         
+        # Resolve data IDs (preserve provided, auto-generate missing) and build link map
+        resolved_data_ids = []
+        for data_obj in self.datas:
+            data_id = data_obj.get("id")
+            if not data_id:
+                data_id = f"a{self._data_counter}"
+                self._data_counter += 1
+            resolved_data_ids.append(data_id)
+
+        # Build mapping data_id -> list of (task id, link type) that reference it (after ID resolution)
+        data_links_map = {}
+        if self.task_ir:
+            for t in self._iter_tasks(self.task_ir):
+                for ref in t.refs:
+                    if ref.get("target", "data") != "data":
+                        continue
+                    ref_id = ref.get("id", "")
+                    if not ref_id:
+                        continue
+                    data_links_map.setdefault(ref_id, []).append((t.id, ref.get("linkType", "")))
+
         # Add datas element with data objects if provided (must come before errors per schema)
         datas_elem = ET.SubElement(root, "datas")
         if self.datas:
-            for data_obj in self.datas:
-                self._add_data_element(datas_elem, data_obj)
+            for data_obj, data_id in zip(self.datas, resolved_data_ids):
+                # Auto-generate link entries from refs with optional linkType
+                auto_links = [
+                    {"taskId": task_id, "linkType": link_type}
+                    for task_id, link_type in data_links_map.get(data_id, [])
+                ]
+                combined_links = data_obj.get("links", []) + auto_links
+                self._add_data_element(datas_elem, data_obj, combined_links, data_id)
         
         # Add errors element with error objects
         errors_elem = ET.SubElement(root, "errors")
@@ -234,9 +293,9 @@ class JsonParser:
         if task.operator:
             task_elem.append(self._operator_to_xml_element(task.operator))
         
-        # Add description (required by schema)
+        # Add description (required by schema, use label for brevity)
         desc_elem = ET.SubElement(task_elem, "description")
-        desc_elem.text = task.description if task.description else task.label
+        desc_elem.text = task.label
         
         # Add xlproperties (required by schema, can be empty)
         xlprops_elem = ET.SubElement(task_elem, "xlproperties")
@@ -330,13 +389,14 @@ class JsonParser:
             pos.set("x", str(x))
             pos.set("y", str(y))
 
-    def _add_data_element(self, datas_elem: ET.Element, data_obj: Dict[str, Any]):
+    def _add_data_element(self, datas_elem: ET.Element, data_obj: Dict[str, Any], link_entries: Optional[List[Dict[str, Any]]] = None, data_id: Optional[str] = None):
         """Add a data element to the datas section"""
-        # Generate ID if not provided
-        data_id = data_obj.get("id")
-        if not data_id:
-            data_id = f"a{self._data_counter}"
-            self._data_counter += 1
+        # Use resolved ID passed in; fall back to object value
+        if data_id is None:
+            data_id = data_obj.get("id")
+            if not data_id:
+                data_id = f"a{self._data_counter}"
+                self._data_counter += 1
         
         # Create data element
         data_elem = ET.SubElement(datas_elem, "data")
@@ -351,12 +411,12 @@ class JsonParser:
         properties_elem = ET.SubElement(data_elem, "properties")
         
         # Add links if provided
-        links = data_obj.get("links", [])
+        links = link_entries if link_entries is not None else data_obj.get("links", [])
         for link in links:
             link_elem = ET.SubElement(data_elem, "link")
             link_elem.set("feature", "none")
             link_elem.set("sourceid", link.get("taskId", ""))
-            link_elem.set("type", link.get("linkType", "ACCESS_TYPE"))
+            link_elem.set("type", link.get("linkType", ""))
             link_elem.set("value", "")
             
             # Add empty points element

@@ -2,7 +2,7 @@
     "$schema": "../hamsters-task.schema.json",
     "label": "Test with too many children",
     "operator": {
-        "type": "sequence",
+        "type": "enable",
         "children": [
             {
                 "label": "Child 1"
