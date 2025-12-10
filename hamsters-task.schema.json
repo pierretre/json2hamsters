@@ -27,7 +27,8 @@
                 "cooperative",
                 "inputouput",
                 "perceptive",
-                "output"
+                "output",
+                "cognitive_decision"
             ]
         },
         "description": {
@@ -124,13 +125,14 @@
                             "calendareventdadadod"
                         ]
                     },
-                    "description": {
+                    "label": {
                         "type": "string",
                         "description": "Data description",
                         "maxLength": 500
                     }
                 },
                 "required": [
+                    "id",
                     "type",
                     "description"
                 ],
