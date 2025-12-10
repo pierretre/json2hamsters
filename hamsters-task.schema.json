@@ -134,7 +134,7 @@
                 "required": [
                     "id",
                     "type",
-                    "description"
+                    "label"
                 ],
                 "additionalProperties": false
             },
