@@ -23,18 +23,13 @@
                 "goal",
                 "user",
                 "system",
-                "cognitive",
                 "cooperative",
                 "inputouput",
                 "perceptive",
                 "output",
-                "cognitive_decision"
+                "cognitive_decision",
+                "interactive_input"
             ]
-        },
-        "description": {
-            "type": "string",
-            "description": "Task description",
-            "maxLength": 1000
         },
         "operator": {
             "$ref": "#/definitions/operator",

@@ -13,7 +13,6 @@ class TaskIR:
         self.id: str = ""
         self.label: str = ""
         self.type: str = "abstract"
-        self.description: str = ""
         self.duration: Dict[str, Any] = {"min": 0, "max": 0, "unit": "s"}
         self.operator: Optional['OperatorIR'] = None
         self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
@@ -26,7 +25,6 @@ class TaskIR:
             "id": self.id,
             "label": self.label,
             "type": self.type,
-            "description": self.description,
             "duration": self.duration,
             "optional": self.optional,
             "refs": self.refs
@@ -135,7 +133,6 @@ class JsonParser:
         explicit_type = task_data.get("type")
         
         # Optional fields
-        task.description = task_data.get("description", "")
         task.optional = task_data.get("optional", False)
         
         # Duration with defaults
@@ -425,7 +422,7 @@ class JsonParser:
         
         # Add description
         desc_elem = ET.SubElement(data_elem, "description")
-        desc_elem.text = data_obj.get("description", "")
+        desc_elem.text = data_obj.get("label", "")
         
         # Add properties (empty)
         properties_elem = ET.SubElement(data_elem, "properties")
