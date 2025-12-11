@@ -15,7 +15,9 @@ class TaskIR:
         self.type: str = "abstract"
         self.duration: Dict[str, Any] = {"min": 0, "max": 0, "unit": "s"}
         self.operator: Optional['OperatorIR'] = None
-        self.loop: Dict[str, int] = {"minIterations": 0, "maxIterations": 0}
+        # Iterative property: True by default (interpreted as wildcard '*').
+        # Can be an integer >=0, the wildcard string "*", or a boolean.
+        self.iterative: Union[int, str, bool] = True
         self.optional: bool = False
         self.refs: List[Dict[str, str]] = []
 
@@ -27,6 +29,7 @@ class TaskIR:
             "type": self.type,
             "duration": self.duration,
             "optional": self.optional,
+            "iterative": self.iterative,
             "refs": self.refs
         }
         
@@ -159,12 +162,16 @@ class JsonParser:
             else:
                 task.type = "abstract"
         
-        # Loop configuration
-        if "loop" in task_data:
-            task.loop = {
-                "minIterations": task_data["loop"].get("minIterations", 0),
-                "maxIterations": task_data["loop"].get("maxIterations", 0)
-            }
+        # Iterative property: default True -> interpreted as wildcard '*'
+        if "iterative" in task_data:
+            it = task_data.get("iterative")
+            # Accept integer, string '*' or boolean
+            if isinstance(it, int):
+                task.iterative = max(0, it)
+            elif isinstance(it, str) and it == "*":
+                task.iterative = "*"
+            else:
+                task.iterative = 0
         
         # References to datas and errors with link metadata (support string shorthand)
         if isinstance(task_data.get("refs", []), list):
@@ -331,7 +338,19 @@ class JsonParser:
         
         iterative_prop = ET.SubElement(sim_category, "property")
         iterative_prop.set("name", "iterative")
-        iterative_prop.set("value", "0")
+        # Determine value for iterative property in XML:
+        # - integer -> that integer
+        # - string '*' -> '*'
+        # - boolean True -> '*'
+        # - boolean False -> '0'
+        it_val = task.iterative
+        if isinstance(it_val, int):
+            xml_iter_val = str(it_val)
+        elif isinstance(it_val, str):
+            xml_iter_val = it_val
+        else:
+            xml_iter_val = "0"  # Fallback
+        iterative_prop.set("value", xml_iter_val)
         
         optional_prop = ET.SubElement(sim_category, "property")
         optional_prop.set("name", "optional")

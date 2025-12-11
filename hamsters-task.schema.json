@@ -64,28 +64,24 @@
             },
             "additionalProperties": false
         },
-        "loop": {
-            "type": "object",
-            "description": "Loop configuration",
-            "properties": {
-                "minIterations": {
-                    "type": "integer",
-                    "description": "Minimum number of iterations",
-                    "minimum": 0,
-                    "maximum": 10000
-                },
-                "maxIterations": {
-                    "type": "integer",
-                    "description": "Maximum number of iterations",
-                    "minimum": 0,
-                    "maximum": 10000
-                }
-            },
-            "additionalProperties": false
-        },
         "optional": {
             "type": "boolean",
             "description": "Whether the task is optional"
+        },
+        "iterative": {
+            "description": "Whether the task is iterative. Defaults to true. Can be an integer (number of iterations), a string wildcard '*' or a boolean.",
+            "anyOf": [
+                {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                },
+                {
+                    "type": "string",
+                    "pattern": "^\\*$"
+                }
+            ],
+            "default": 0
         },
         "datas": {
             "type": "array",
